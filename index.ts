@@ -5,43 +5,72 @@
   * visualization of geojson objects in turfjs during debugging.
   */
 
-// TODO: OVeralll, I don't think that this needs to be content aware at all
 import http from "node:http";
-import fs from "node:fs";
+import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { WebSocketServer, type WebSocket } from "ws";
 
-// TODO: Accept host and port as command line options. We will manuall parse any CLI options.
-// CLI options will only be long form e.g, --host and will always have defaults to make parsing easier
-const HOST = "127.0.0.1";
-const PORT = Number(process.env.PORT ?? 7777);
+// Configuration from environment variables
+const HOST = process.env.TURF_DEBUG_HOST ?? "127.0.0.1";
+// TODO: Number parsing should be more rigorous
+const PORT = Number(process.env.TURF_DEBUG_PORT ?? 7777);
+
+// Simple logging utilities
+const logger = {
+  error: (...args: unknown[]) => console.error("[ERROR]", ...args),
+  info: (...args: unknown[]) => console.log("[INFO]", ...args),
+  debug: (...args: unknown[]) => {
+    // Only log debug messages if NODE_DEBUG includes 'turf-debug-viz'
+    if (process.env.NODE_DEBUG?.includes("turf-debug-viz")) {
+      console.log("[DEBUG]", ...args);
+    }
+  },
+};
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const INDEX_FILE = path.join(__dirname, "public", "index.html");
 
-function serveIndex(res: http.ServerResponse) {
-  // TODO: Replace with fs/promises
-  fs.readFile(INDEX_FILE, (err, buf) => {
-    if (err) {
-      res.writeHead(500, { "content-type": "text/plain; charset=utf-8" });
-      // TODO: Don't write out internal errors, but log it to the console
-      res.end(`An internal server error occured\n${err}`);
-      return;
-    }
+const MIME_TYPES: Record<string, string> = {
+  ".html": "text/html; charset=utf-8",
+  ".css": "text/css; charset=utf-8",
+  ".js": "application/javascript; charset=utf-8",
+  ".map": "application/json; charset=utf-8",
+};
+
+async function serveFile(filePath: string, res: http.ServerResponse) {
+  try {
+    const buf = await fs.readFile(filePath);
+    const ext = path.extname(filePath);
+    const contentType = MIME_TYPES[ext] || "application/octet-stream";
+
     res.writeHead(200, {
-      "content-type": "text/html; charset=utf-8",
-      // TODO: This is a static site that, once development is finished, won't change that much. Is cache-control required?
+      "content-type": contentType,
+      // Keep no-store for development convenience - files can change during development
       "cache-control": "no-store",
     });
     res.end(buf);
-  });
+  } catch (err) {
+    logger.error("Failed to read file:", filePath, err);
+    res.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
+    res.end("Not found");
+  }
 }
 
 const server = http.createServer((req, res) => {
   const url = req.url ?? "/";
-  if (url === "/" || url === "/index.html") return serveIndex(res);
+
+  if (url === "/" || url === "/index.html") {
+    return serveFile(INDEX_FILE, res);
+  }
+
+  // Serve static assets from public/assets directory
+  if (url.startsWith("/assets/")) {
+    const filePath = path.join(__dirname, "public", url);
+    return serveFile(filePath, res);
+  }
+
   res.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
   res.end("Not found");
 });
@@ -51,33 +80,33 @@ const clients = new Set<WebSocket>();
 
 wss.on("connection", (ws) => {
   clients.add(ws);
+  logger.debug("Client connected, total clients:", clients.size);
 
   ws.on("message", (raw) => {
-    // TODO: Only log message at a debug log level? How do we set the log level? Do we want a --debug CLI option or better to set an env var?
-    // We should just log JSON
-    console.log("message", raw);
-    broadcastOthers(ws, raw);
+    const s = raw.toString();
+    logger.debug("Message received:", s);
+    broadcastOthers(ws, s);
   });
 
-  // TODO: Debug logging
   ws.on("close", () => {
     clients.delete(ws);
+    logger.debug("Client disconnected, total clients:", clients.size);
   });
 
-  // TODO: Error logging in console
-  ws.on("error", () => {
+  ws.on("error", (err) => {
+    logger.error("WebSocket error:", err);
     clients.delete(ws);
   });
 });
 
-function broadcastOthers(sender: WebSocket, raw: WebSocket.RawData) {
+function broadcastOthers(sender: WebSocket, raw: string) {
   for (const c of clients) {
     if (c !== sender && c.readyState === c.OPEN) c.send(raw);
   }
 }
 
 server.listen(PORT, HOST, () => {
-  console.log(`Relay listening on http://${HOST}:${PORT}`);
-  console.log(`WebSocket endpoint ws://${HOST}:${PORT}/ws`);
+  logger.info(`Relay listening on http://${HOST}:${PORT}`);
+  logger.info(`WebSocket endpoint ws://${HOST}:${PORT}/ws`);
 });
 

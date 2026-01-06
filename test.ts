@@ -1,11 +1,62 @@
-// Test the export hook.
-//
-// Run this script with ./node_modules/.bin/tsx --import ./export-hook.ts test.ts
-// after starting the relay server
+/**
+ * Test the export hook
+ *
+ * Start the relay server first: npm start
+ * Then run: npx tsx --import ./export-hook.ts test.ts
+ */
 
-console.log("Testing export hook and relay server");
+console.log("Testing export hook with GeoJSON");
 
-exportDebug("test message", "This is a message");
+// Test with a simple Point
+exportDebug("test-point", {
+  type: "Point",
+  coordinates: [-122.4194, 37.7749],
+});
 
-console.log("message sent");
+// Test with a Feature
+exportDebug("test-feature", {
+  type: "Feature",
+  geometry: {
+    type: "LineString",
+    coordinates: [
+      [-122.4, 37.8],
+      [-122.5, 37.9],
+    ],
+  },
+  properties: {
+    name: "Test Line",
+    color: "blue",
+  },
+});
+
+// Test with a FeatureCollection
+exportDebug("test-collection", {
+  type: "FeatureCollection",
+  features: [
+    {
+      type: "Feature",
+      geometry: {
+        type: "Point",
+        coordinates: [0, 0],
+      },
+      properties: { label: "Origin" },
+    },
+    {
+      type: "Feature",
+      geometry: {
+        type: "Point",
+        coordinates: [1, 1],
+      },
+      properties: { label: "Point 1,1" },
+    },
+  ],
+});
+
+console.log("Messages sent. Disconnecting...");
+
+// Test disconnect functionality
+setTimeout(() => {
+  disconnectDebug();
+  console.log("Disconnected from relay server");
+}, 100);
 
