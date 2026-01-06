@@ -1,45 +1,217 @@
+/* ========================================
+   TokyoNight Color Palettes
+   ======================================== */
+
+/* TokyoNight Day (light theme) */
+:root,
+[data-theme="light"] {
+  --tn-bg: #e1e2e7;
+  --tn-bg-dark: #c4c8da;
+  --tn-bg-highlight: #b6bfe2;
+  --tn-fg: #3760bf;
+  --tn-fg-dark: #0f4b6e;
+  --tn-comment: #848cb5;
+  --tn-red: #f52a65;
+  --tn-orange: #b15c00;
+  --tn-yellow: #8c6c3e;
+  --tn-green: #587539;
+  --tn-cyan: #007197;
+  --tn-blue: #2e7de9;
+  --tn-purple: #9854f1;
+  --tn-magenta: #7847bd;
+}
+
+/* TokyoNight Moon (dark theme) */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --tn-bg: #222436;
+    --tn-bg-dark: #1e2030;
+    --tn-bg-highlight: #2d3f76;
+    --tn-fg: #c8d3f5;
+    --tn-fg-dark: #828bb8;
+    --tn-comment: #636da6;
+    --tn-red: #ff757f;
+    --tn-orange: #ff966c;
+    --tn-yellow: #ffc777;
+    --tn-green: #c3e88d;
+    --tn-cyan: #86e1fc;
+    --tn-blue: #82aaff;
+    --tn-purple: #fca7ea;
+    --tn-magenta: #c099ff;
+  }
+}
+
+[data-theme="dark"] {
+  --tn-bg: #222436;
+  --tn-bg-dark: #1e2030;
+  --tn-bg-highlight: #2d3f76;
+  --tn-fg: #c8d3f5;
+  --tn-fg-dark: #828bb8;
+  --tn-comment: #636da6;
+  --tn-red: #ff757f;
+  --tn-orange: #ff966c;
+  --tn-yellow: #ffc777;
+  --tn-green: #c3e88d;
+  --tn-cyan: #86e1fc;
+  --tn-blue: #82aaff;
+  --tn-purple: #fca7ea;
+  --tn-magenta: #c099ff;
+}
+
+/* ========================================
+   Semantic Color Mappings
+   ======================================== */
+
+:root {
+  --bg: var(--tn-bg);
+  --bg-alt: var(--tn-bg-dark);
+  --fg: var(--tn-fg);
+  --fg-muted: var(--tn-comment);
+  --border: var(--tn-bg-highlight);
+  --btn-bg: var(--tn-bg-highlight);
+}
+
+/* ========================================
+   Layout & Base Styles
+   ======================================== */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
 body {
   font-family: ui-monospace, Consolas, monospace;
+  background: var(--bg);
+  color: var(--fg);
+  height: 100vh;
+  overflow: hidden;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
 
 header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
   display: flex;
-  gap: 12px;
   align-items: center;
-  flex-wrap: wrap;
+  gap: 12px;
+}
+
+#main-container {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+#content {
+  flex: 1;
+  padding: 16px;
+  overflow: auto;
+}
+
+/* ========================================
+   Sidebar
+   ======================================== */
+
+#sidebar {
+  width: 25%;
+  min-width: 300px;
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-alt);
+}
+
+#sidebar-header {
+  padding: 12px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+#sidebar-header #clear {
+  margin-left: auto;
 }
 
 #status {
   padding: 4px 8px;
-  border: 1px solid #ccc;
   border-radius: 6px;
-}
-
-#controls {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-input,
-button,
-select {
-  font: inherit;
+  font-size: 0.875rem;
+  color: var(--fg-muted);
 }
 
 #log {
-  white-space: pre;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  padding: 4px 8px;
+  flex: 1;
+  overflow: auto;
+  padding: 12px;
 }
 
 .row {
-  border-bottom: 1px dashed #eee;
+  border-bottom: 1px solid var(--border);
   padding: 8px 0;
 }
 
+.row:last-child {
+  border-bottom: none;
+}
+
 .meta {
+  color: var(--fg-muted);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.875rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.meta:hover {
+  color: var(--fg);
+}
+
+pre {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  font-size: 0.875rem;
+  margin-top: 4px;
+}
+
+.row.collapsed pre {
+  display: none;
+}
+
+/* ========================================
+   Buttons & Controls
+   ======================================== */
+
+button {
+  font: inherit;
+  background: var(--btn-bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 12px;
+  cursor: pointer;
+  font-size: 0.875rem;
   opacity: 0.7;
+}
+
+button:hover {
+  opacity: 1;
+}
+
+#theme-toggle {
+  margin-left: auto;
+}
+
+.delete-btn {
+  padding: 0 6px;
+  line-height: 1.2;
 }

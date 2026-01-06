@@ -9,27 +9,27 @@
 </head>
 
 <body>
-  <header>
-    <div id="status">disconnected</div>
-    <div id="controls">
-      <button id="clear">clear</button>
-      <label>
-        filter label:
-        <input id="filter" placeholder="e.g. after-parse" />
-      </label>
-      <label>
-        max rows:
-        <select id="maxRows">
-          <option>100</option>
-          <option>300</option>
-          <option selected>1000</option>
-          <option>3000</option>
-        </select>
-      </label>
-    </div>
-  </header>
+  <div id="app">
+    <header>
+      <h1 style="font-size: 1rem; font-weight: 600;">TurfJS Debug Visualizer</h1>
+      <button id="theme-toggle">System</button>
+    </header>
 
-  <div id="log"></div>
+    <div id="main-container">
+      <div id="content">
+        <!-- Main content area - to be populated later -->
+      </div>
+
+      <div id="sidebar">
+        <div id="sidebar-header">
+          <div id="status">disconnected</div>
+          <button id="clear">clear all</button>
+        </div>
+        <div id="log"></div>
+      </div>
+    </div>
+  </div>
+
   <script type="module" src="/assets/client.js"></script>
 </body>
 
