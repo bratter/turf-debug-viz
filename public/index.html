@@ -1,0 +1,156 @@
+<!doctype html>
+<html>
+
+<head>
+  <meta charset="utf-8" />
+  <title>TurfJs Debug Visualizer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    /* TODO: Refactor css into separate file called style.css in an assets directory */
+    body {
+      font-family: ui-monospace, Consolas, monospace;
+    }
+
+    header {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    #status {
+      padding: 4px 8px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+    }
+
+    #controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    input,
+    button,
+    select {
+      font: inherit;
+    }
+
+    #log {
+      white-space: pre;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 4px 8px;
+    }
+
+    .row {
+      border-bottom: 1px dashed #eee;
+      padding: 8px 0;
+    }
+
+    .meta {
+      opacity: 0.7;
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <div id="status">disconnected</div>
+    <div id="controls">
+      <button id="clear">clear</button>
+      <label>
+        filter label:
+        <input id="filter" placeholder="e.g. after-parse" />
+      </label>
+      <label>
+        max rows:
+        <select id="maxRows">
+          <option>100</option>
+          <option>300</option>
+          <option selected>1000</option>
+          <option>3000</option>
+        </select>
+      </label>
+    </div>
+  </header>
+
+  <div id="log"></div>
+  <script>
+    // TODO: Refactor the JS into a separate file in an assets directory with a logical name (e.g., sciprt.js)
+    // This can be a module type - we want to use module features like import where appropriate
+    // TODO: Given that the rest of the code is typescript, consider porting to typescript instead.
+    // Do you think this is a good idea? If so, then leave the .ts file in root, call it client.ts,
+    // then have tsc compile it to public/script.js, adding this to .gitignore, and appropriate build / mangement
+    // content to package.json
+    const statusEl = document.getElementById("status");
+    const logEl = document.getElementById("log");
+    const clearBtn = document.getElementById("clear");
+    const filterEl = document.getElementById("filter");
+    const maxRowsEl = document.getElementById("maxRows");
+
+    let ws;
+    let rows = [];
+
+    function setStatus(s) {
+      statusEl.textContent = s;
+    }
+
+    function connect() {
+      console.log(location);
+      const wsUrl = `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`;
+      ws = new WebSocket(wsUrl);
+      ws.addEventListener("open", () => setStatus("connected"));
+      ws.addEventListener("close", () => {
+        setStatus("disconnected (reconnecting...)");
+        setTimeout(connect, 300);
+      });
+      ws.addEventListener("error", () => {
+        // close triggers reconnect
+        try {ws.close();} catch { }
+      });
+      ws.addEventListener("message", (ev) => {
+        let msg;
+        try {
+          msg = JSON.parse(ev.data);
+        } catch {
+          msg = {label: "raw", ts: Date.now(), value: String(ev.data)};
+        }
+        const filter = filterEl.value.trim();
+        if (filter && msg.label !== filter) return;
+        rows.push(msg);
+        const max = Number(maxRowsEl.value);
+        if (rows.length > max) rows = rows.slice(rows.length - max);
+        render();
+      });
+    }
+
+    function render() {
+      logEl.innerHTML = "";
+      for (let i = rows.length - 1; i >= 0; i--) {
+        const m = rows[i];
+        const div = document.createElement("div");
+        div.className = "row";
+        const ts = new Date(m.ts || Date.now()).toISOString();
+        const header = document.createElement("div");
+        header.className = "meta";
+        header.textContent = `[${ts}] ${m.label ?? "(no label)"}`;
+        const pre = document.createElement("pre");
+        pre.textContent = typeof m.value === "string" ? m.value : JSON.stringify(m.value, null, 2);
+        div.appendChild(header);
+        div.appendChild(pre);
+        logEl.appendChild(div);
+      }
+    }
+
+    clearBtn.addEventListener("click", () => {
+      rows = [];
+      render();
+    });
+
+    connect();
+  </script>
+</body>
+
+</html>
