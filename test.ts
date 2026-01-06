@@ -8,13 +8,13 @@
 console.log("Testing export hook with GeoJSON");
 
 // Test with a simple Point
-exportDebug("test-point", {
+DebugViz.send("test-point", {
   type: "Point",
   coordinates: [-122.4194, 37.7749],
 });
 
 // Test with a Feature
-exportDebug("test-feature", {
+DebugViz.send("test-feature", {
   type: "Feature",
   geometry: {
     type: "LineString",
@@ -30,7 +30,7 @@ exportDebug("test-feature", {
 });
 
 // Test with a FeatureCollection
-exportDebug("test-collection", {
+DebugViz.send("test-collection", {
   type: "FeatureCollection",
   features: [
     {
@@ -52,11 +52,14 @@ exportDebug("test-collection", {
   ],
 });
 
-console.log("Messages sent. Disconnecting...");
-
 // Test disconnect functionality
 setTimeout(() => {
-  disconnectDebug();
+  console.log("Messages sent. Check connection status...");
+  console.log("Connected:", DebugViz.isConnected());
+
+  DebugViz.disconnect();
+
   console.log("Disconnected from relay server");
+  console.log("Connected:", DebugViz.isConnected());
 }, 100);
 

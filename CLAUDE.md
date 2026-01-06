@@ -25,9 +25,11 @@ This is a debug visualization tool for TurfJS that enables real-time visualizati
 ### Export Hook (export-hook.ts)
 
 - Designed to be loaded via Node's `--import` flag
-- Adds two global functions:
-  - `globalThis.exportDebug(label, geojson)` - sends GeoJSON to relay
-  - `globalThis.disconnectDebug()` - closes WebSocket connection
+- Adds `globalThis.DebugViz` namespace with three methods:
+  - `DebugViz.send(label, geojson)` - sends GeoJSON to relay
+  - `DebugViz.disconnect()` - closes WebSocket connection
+  - `DebugViz.isConnected()` - checks connection status
+- Automatically disconnects on process exit
 - Connects to relay server using `TURF_DEBUG_HOST` and `TURF_DEBUG_PORT` env vars (defaults: `127.0.0.1:7777`)
 - Queues messages when disconnected (max 2000 messages)
 - Type-safe: only accepts GeoJSON objects (uses `@types/geojson`)
@@ -100,14 +102,19 @@ TURF_DEBUG_PORT=8080 npx tsx --import ./export-hook.ts test.ts
 
    ```typescript
    // Send GeoJSON to visualizer
-   exportDebug("my-feature", {
+   DebugViz.send("my-feature", {
      type: "Feature",
      geometry: { type: "Point", coordinates: [0, 0] },
      properties: { name: "Test" }
    });
 
-   // When done debugging
-   disconnectDebug();
+   // Check connection status
+   if (DebugViz.isConnected()) {
+     console.log("Connected to debug visualizer");
+   }
+
+   // Optional: manually disconnect (auto-disconnects on process exit)
+   DebugViz.disconnect();
    ```
 
 ## TypeScript Configuration
@@ -126,8 +133,12 @@ Copy these type declarations to your project:
 import type { GeoJSON } from "geojson";
 
 declare global {
-  var exportDebug: (label: string, geojson: GeoJSON) => void;
-  var disconnectDebug: () => void;
+  namespace DebugViz {
+    function send(label: string, geojson: GeoJSON): void;
+    function disconnect(): void;
+    function isConnected(): boolean;
+  }
+  var DebugViz: typeof DebugViz;
 }
 ```
 

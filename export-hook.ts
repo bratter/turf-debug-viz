@@ -1,8 +1,7 @@
 /**
  * Data Export Hook for TurfJS Debug Visualizer
  *
- * Adds globalThis.exportDebug() and globalThis.disconnectDebug() functions
- * for sending GeoJSON to the relay server.
+ * Adds globalThis.DebugViz namespace with methods for sending GeoJSON to the relay server.
  *
  * Usage:
  *   node --import tsx --import ./export-hook.ts yourApp.ts
@@ -54,36 +53,46 @@ function flush() {
   }
 }
 
-function sendRaw(jsonLine: string) {
+function send(jsonLine: string) {
   connect();
   if (ws && ws.readyState === WebSocket.OPEN) {
     ws.send(jsonLine);
   } else {
     queue.push(jsonLine);
-    if (queue.length > 2000) queue = queue.slice(queue.length - 2000);
   }
 }
 
-globalThis.exportDebug = (label: string, geojson: GeoJSON) => {
-  const msg: DebugMessage = {
-    label: String(label ?? "debug"),
-    ts: Date.now(),
-    geojson,
-  };
+globalThis.DebugViz = {
+  send: (label: string, geojson: GeoJSON) => {
+    const msg: DebugMessage = {
+      label: String(label ?? "debug"),
+      ts: Date.now(),
+      geojson,
+    };
 
-  const body = JSON.stringify(msg);
-  sendRaw(body);
-};
+    const body = JSON.stringify(msg);
+    send(body);
+  },
 
-globalThis.disconnectDebug = () => {
-  if (ws) {
-    try {
-      ws.close();
-    } catch {
-      // Ignore close errors
+  disconnect: () => {
+    if (ws) {
+      try {
+        ws.close();
+      } catch {
+        // Ignore close errors
+      }
+      ws = undefined;
     }
-    ws = undefined;
-  }
-  queue = [];
-  connecting = false;
+    queue = [];
+    connecting = false;
+  },
+
+  isConnected: () => {
+    return ws?.readyState === WebSocket.OPEN;
+  },
 };
+
+// Auto-cleanup on process exit
+process.on("beforeExit", () => {
+  globalThis.DebugViz?.disconnect();
+});
