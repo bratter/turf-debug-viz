@@ -13,6 +13,20 @@ DebugViz.send("test-point", {
   coordinates: [-122.4194, 37.7749],
 });
 
+// Test with a Polygon near the test-point
+DebugViz.send("test-polygon", {
+  type: "Polygon",
+  coordinates: [
+    [
+      [-122.42, 37.77],
+      [-122.41, 37.77],
+      [-122.41, 37.78],
+      [-122.42, 37.78],
+      [-122.42, 37.77],
+    ],
+  ],
+});
+
 // Test with a Feature
 DebugViz.send("test-feature", {
   type: "Feature",

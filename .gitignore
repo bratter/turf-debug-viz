@@ -1,5 +1,8 @@
 node_modules
 
 # Build artifacts
-public/assets/client.js
-public/assets/client.js.map
+public/assets/*.js
+public/assets/*.js.map
+
+# Configuration
+config.ts

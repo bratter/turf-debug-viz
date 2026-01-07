@@ -1,0 +1,8 @@
+/**
+ * Configuration for TurfJS Debug Visualizer
+ * Copy this file to config.ts and add your MapBox access token
+ */
+
+export const config = {
+  mapboxToken: "your-mapbox-token-here",
+};
