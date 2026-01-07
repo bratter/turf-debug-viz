@@ -4,7 +4,7 @@
  */
 
 import type { GeoJSON, Feature, FeatureCollection, Geometry, GeometryCollection } from "geojson";
-import type { Map as MapboxMap, LngLatBoundsLike } from "mapbox-gl";
+import type { Map as MapboxMap } from "mapbox-gl";
 import { config } from "./config.js";
 
 // MapBox GL is loaded via CDN script tag
@@ -16,28 +16,51 @@ interface DebugMessage {
   geojson: GeoJSON;
 }
 
-const statusEl = document.getElementById("status") as HTMLDivElement;
-const logEl = document.getElementById("log") as HTMLDivElement;
+// ========================================
+// Constants
+// ========================================
+
+const STORAGE_KEY_THEME = "turf-debug-theme";
+const STORAGE_KEY_AUTOFIT = "turf-debug-autofit";
+const MAP_FIT_OPTIONS = {
+  padding: 50,
+  maxZoom: 15,
+  duration: 500,
+} as const;
+const WEBSOCKET_RECONNECT_DELAY = 300;
+
+// ========================================
+// DOM Element References
+// ========================================
+
+const statusIndicator = document.getElementById("status") as HTMLDivElement;
+const messageLog = document.getElementById("log") as HTMLDivElement;
 const clearBtn = document.getElementById("clear") as HTMLButtonElement;
 const themeToggle = document.getElementById("theme-toggle") as HTMLButtonElement;
 const autofitCheckbox = document.getElementById("autofit-checkbox") as HTMLInputElement;
-const contentEl = document.getElementById("content") as HTMLDivElement;
+const mapContainerParent = document.getElementById("content") as HTMLDivElement;
 
-let ws: WebSocket | undefined;
+// ========================================
+// State Variables
+// ========================================
+
+let webSocket: WebSocket | undefined;
 let rows: DebugMessage[] = [];
 let expandedRows = new Set<number>();
 
-// Map state
 let map: MapboxMap | undefined;
+let currentMapStyle: string | undefined;
 const mapSources = new Map<number, string>(); // row index -> source ID
 const mapLayers = new Map<number, string[]>(); // row index -> layer IDs
 
-// Theme management
+// ========================================
+// Theme Management
+// ========================================
+
 type Theme = "system" | "light" | "dark";
-const THEME_KEY = "turf-debug-theme";
 
 function getTheme(): Theme {
-  const stored = localStorage.getItem(THEME_KEY);
+  const stored = localStorage.getItem(STORAGE_KEY_THEME);
   if (stored === "light" || stored === "dark" || stored === "system") {
     return stored;
   }
@@ -45,32 +68,31 @@ function getTheme(): Theme {
 }
 
 function setTheme(theme: Theme): void {
-  localStorage.setItem(THEME_KEY, theme);
+  localStorage.setItem(STORAGE_KEY_THEME, theme);
   applyTheme(theme);
 }
 
 // Auto-fit management
-const AUTOFIT_KEY = "turf-debug-autofit";
-
 function getAutoFit(): boolean {
-  const stored = localStorage.getItem(AUTOFIT_KEY);
+  const stored = localStorage.getItem(STORAGE_KEY_AUTOFIT);
   return stored !== "false"; // Default to true
 }
 
 function setAutoFit(enabled: boolean): void {
-  localStorage.setItem(AUTOFIT_KEY, enabled.toString());
+  localStorage.setItem(STORAGE_KEY_AUTOFIT, enabled.toString());
+}
+
+function prefersDark(): boolean {
+  return window.matchMedia("(prefers-color-scheme: dark)").matches;
 }
 
 function getMapStyle(theme: Theme): string {
-  if (theme === "system") {
-    // Check system preference
-    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    return prefersDark ? "mapbox://styles/mapbox/dark-v11" : "mapbox://styles/mapbox/light-v11";
+  if ((theme === "system" && prefersDark()) || theme === "dark") {
+    return "mapbox://styles/mapbox/dark-v11";
+  } else {
+    return "mapbox://styles/mapbox/light-v11";
   }
-  return theme === "dark" ? "mapbox://styles/mapbox/dark-v11" : "mapbox://styles/mapbox/light-v11";
 }
-
-let currentMapStyle: string | undefined;
 
 function applyTheme(theme: Theme): void {
   if (theme === "system") {
@@ -123,19 +145,10 @@ function cycleTheme(): void {
   setTheme(next);
 }
 
-// Initialize theme
-applyTheme(getTheme());
+// ========================================
+// Map Initialization
+// ========================================
 
-// Initialize auto-fit checkbox
-autofitCheckbox.checked = getAutoFit();
-autofitCheckbox.addEventListener("change", () => {
-  setAutoFit(autofitCheckbox.checked);
-  if (autofitCheckbox.checked) {
-    fitMapBounds();
-  }
-});
-
-// Initialize map
 function initMap(): void {
   // Set MapBox access token
   mapboxgl.accessToken = config.mapboxToken;
@@ -143,7 +156,7 @@ function initMap(): void {
   // Create map container div
   const mapContainer = document.createElement("div");
   mapContainer.id = "map-container";
-  contentEl.appendChild(mapContainer);
+  mapContainerParent.appendChild(mapContainer);
 
   // Create map instance
   const initialStyle = getMapStyle(getTheme());
@@ -163,7 +176,6 @@ function initMap(): void {
   map.on("style.load", () => {
     // When style changes (e.g., theme switch), re-add all features
     const currentSources = new Map(mapSources);
-    const currentLayers = new Map(mapLayers);
 
     mapSources.clear();
     mapLayers.clear();
@@ -177,12 +189,9 @@ function initMap(): void {
   });
 }
 
-// Initialize map on DOM load
-initMap();
-
-function setStatus(s: string): void {
-  statusEl.textContent = s;
-}
+// ========================================
+// GeoJSON Helper Functions
+// ========================================
 
 // GeoJSON normalization - convert all GeoJSON types to Feature array
 function normalizeToFeatures(geojson: GeoJSON): Feature[] {
@@ -209,15 +218,16 @@ function normalizeToFeatures(geojson: GeoJSON): Feature[] {
   }
 }
 
-// Fit map bounds to show all features
-function fitMapBounds(): void {
-  if (!map || !getAutoFit()) return;
+// ========================================
+// Map Feature Management
+// ========================================
 
+// Calculate bounds for given row indices
+function calculateBounds(indices: number[]): { bounds: typeof mapboxgl.LngLatBounds.prototype; hasFeatures: boolean } {
   const bounds = new mapboxgl.LngLatBounds();
   let hasFeatures = false;
 
-  // Only calculate bounds for features that are actually on the map
-  mapSources.forEach((sourceId, index) => {
+  indices.forEach((index) => {
     if (index >= rows.length) return; // Safety check
 
     try {
@@ -225,7 +235,6 @@ function fitMapBounds(): void {
       const features = normalizeToFeatures(row.geojson);
       features.forEach((feature) => {
         if (feature.geometry) {
-          // Extract coordinates based on geometry type
           const coords = extractCoordinates(feature.geometry);
           coords.forEach(([lng, lat]) => {
             bounds.extend([lng, lat]);
@@ -238,8 +247,19 @@ function fitMapBounds(): void {
     }
   });
 
+  return { bounds, hasFeatures };
+}
+
+// Fit map bounds to show all features
+function fitMapBounds(): void {
+  if (!map || !getAutoFit()) return;
+
+  // Get all indices that are on the map
+  const indices = Array.from(mapSources.keys());
+  const { bounds, hasFeatures } = calculateBounds(indices);
+
   if (hasFeatures) {
-    map.fitBounds(bounds, { padding: 50, maxZoom: 15, duration: 500 });
+    map.fitBounds(bounds, MAP_FIT_OPTIONS);
   }
 }
 
@@ -247,27 +267,10 @@ function fitMapBounds(): void {
 function zoomToFeature(index: number): void {
   if (!map || index >= rows.length) return;
 
-  try {
-    const row = rows[index];
-    const features = normalizeToFeatures(row.geojson);
-    const bounds = new mapboxgl.LngLatBounds();
-    let hasFeatures = false;
+  const { bounds, hasFeatures } = calculateBounds([index]);
 
-    features.forEach((feature) => {
-      if (feature.geometry) {
-        const coords = extractCoordinates(feature.geometry);
-        coords.forEach(([lng, lat]) => {
-          bounds.extend([lng, lat]);
-          hasFeatures = true;
-        });
-      }
-    });
-
-    if (hasFeatures) {
-      map.fitBounds(bounds, { padding: 50, maxZoom: 15, duration: 500 });
-    }
-  } catch (err) {
-    console.error(`Failed to zoom to feature ${index}:`, err);
+  if (hasFeatures) {
+    map.fitBounds(bounds, MAP_FIT_OPTIONS);
   }
 }
 
@@ -311,7 +314,7 @@ function extractCoordinates(geometry: Geometry): number[][] {
 
 // Get theme-appropriate color for map features
 function getFeatureColor(theme: Theme): string {
-  const isDark = theme === "dark" || (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+  const isDark = theme === "dark" || (theme === "system" && prefersDark());
   return isDark ? "#60A5FF" : "#4080FF";
 }
 
@@ -455,33 +458,41 @@ function clearMap(): void {
     mapSources.clear();
 
     // Reset to world view
-    map.flyTo({ center: [0, 0], zoom: 1, duration: 500 });
+    map.flyTo({ center: [0, 0], zoom: 1, duration: MAP_FIT_OPTIONS.duration });
   } catch (err) {
     console.error("Failed to clear map:", err);
   }
 }
 
+// ========================================
+// WebSocket Connection
+// ========================================
+
+function setStatus(status: string): void {
+  statusIndicator.textContent = status;
+}
+
 function connect(): void {
   const wsUrl = `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`;
-  ws = new WebSocket(wsUrl);
+  webSocket = new WebSocket(wsUrl);
 
-  ws.addEventListener("open", () => setStatus("connected"));
+  webSocket.addEventListener("open", () => setStatus("connected"));
 
-  ws.addEventListener("close", () => {
+  webSocket.addEventListener("close", () => {
     setStatus("disconnected (reconnecting...)");
-    setTimeout(connect, 300);
+    setTimeout(connect, WEBSOCKET_RECONNECT_DELAY);
   });
 
-  ws.addEventListener("error", () => {
+  webSocket.addEventListener("error", () => {
     // close event will trigger reconnect
     try {
-      ws?.close();
+      webSocket?.close();
     } catch {
       // ignore close errors
     }
   });
 
-  ws.addEventListener("message", async (ev) => {
+  webSocket.addEventListener("message", async (ev) => {
     let msg: DebugMessage;
     try {
       msg = JSON.parse(ev.data) as DebugMessage;
@@ -497,95 +508,147 @@ function connect(): void {
   });
 }
 
+// ========================================
+// Rendering Functions
+// ========================================
+
+// Adjust all tracking indices after deleting a row
+function adjustIndicesAfterDeletion(deletedIndex: number): void {
+  // Adjust expandedRows indices
+  const newExpanded = new Set<number>();
+  expandedRows.forEach((idx) => {
+    if (idx > deletedIndex) newExpanded.add(idx - 1);
+    else if (idx < deletedIndex) newExpanded.add(idx);
+  });
+  expandedRows = newExpanded;
+
+  // Adjust map tracking indices
+  const newMapSources = new Map<number, string>();
+  const newMapLayers = new Map<number, string[]>();
+  mapSources.forEach((sourceId, idx) => {
+    if (idx > deletedIndex) newMapSources.set(idx - 1, sourceId);
+    else if (idx < deletedIndex) newMapSources.set(idx, sourceId);
+  });
+  mapLayers.forEach((layerIds, idx) => {
+    if (idx > deletedIndex) newMapLayers.set(idx - 1, layerIds);
+    else if (idx < deletedIndex) newMapLayers.set(idx, layerIds);
+  });
+  mapSources.clear();
+  mapLayers.clear();
+  newMapSources.forEach((v, k) => mapSources.set(k, v));
+  newMapLayers.forEach((v, k) => mapLayers.set(k, v));
+}
+
+// Delete a row and adjust all indices
+function deleteRow(index: number): void {
+  removeFromMap(index);
+  rows.splice(index, 1);
+  expandedRows.delete(index);
+  adjustIndicesAfterDeletion(index);
+  render();
+}
+
+// Create action buttons (zoom and delete) for a row
+function createActionButtons(index: number): HTMLDivElement {
+  const buttonContainer = document.createElement("div");
+  buttonContainer.className = "row-buttons";
+
+  const zoomBtn = document.createElement("button");
+  zoomBtn.className = "zoom-btn";
+  zoomBtn.textContent = "🔍";
+  zoomBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    zoomToFeature(index);
+  });
+  buttonContainer.appendChild(zoomBtn);
+
+  const deleteBtn = document.createElement("button");
+  deleteBtn.className = "delete-btn";
+  deleteBtn.textContent = "🗑️";
+  deleteBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    deleteRow(index);
+  });
+  buttonContainer.appendChild(deleteBtn);
+
+  return buttonContainer;
+}
+
+// Create header element for a row
+function createRowHeader(message: DebugMessage, index: number): HTMLDivElement {
+  const header = document.createElement("div");
+  header.className = "meta";
+
+  const ts = new Date(message.ts || Date.now()).toISOString();
+  const labelSpan = document.createElement("span");
+  labelSpan.innerHTML = `${message.label ?? "(no label)"}<br>[${ts}]`;
+  header.appendChild(labelSpan);
+
+  const buttonContainer = createActionButtons(index);
+  header.appendChild(buttonContainer);
+
+  // Toggle expand/collapse on header click
+  header.addEventListener("click", (e) => {
+    if ((e.target as HTMLElement).tagName !== "BUTTON") {
+      if (expandedRows.has(index)) {
+        expandedRows.delete(index);
+      } else {
+        expandedRows.add(index);
+      }
+      render();
+    }
+  });
+
+  return header;
+}
+
+// Create a complete row element
+function createRowElement(message: DebugMessage, index: number): HTMLDivElement {
+  const isExpanded = expandedRows.has(index);
+  const rowElement = document.createElement("div");
+  rowElement.className = isExpanded ? "row" : "row collapsed";
+
+  const header = createRowHeader(message, index);
+  rowElement.appendChild(header);
+
+  const pre = document.createElement("pre");
+  pre.textContent = JSON.stringify(message.geojson, null, 2);
+  rowElement.appendChild(pre);
+
+  return rowElement;
+}
+
 function render(): void {
-  logEl.innerHTML = "";
+  messageLog.innerHTML = "";
 
   // Display in reverse order of arrival (most recent first)
   for (let i = rows.length - 1; i >= 0; i--) {
-    const m = rows[i];
-    const div = document.createElement("div");
-    const isExpanded = expandedRows.has(i);
-    div.className = isExpanded ? "row" : "row collapsed";
-
-    const ts = new Date(m.ts || Date.now()).toISOString();
-    const header = document.createElement("div");
-    header.className = "meta";
-
-    const labelSpan = document.createElement("span");
-    labelSpan.innerHTML = `${m.label ?? "(no label)"}<br>[${ts}]`;
-    header.appendChild(labelSpan);
-
-    const buttonContainer = document.createElement("div");
-    buttonContainer.className = "row-buttons";
-
-    const zoomBtn = document.createElement("button");
-    zoomBtn.className = "zoom-btn";
-    zoomBtn.textContent = "🔍";
-    zoomBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      zoomToFeature(i);
-    });
-    buttonContainer.appendChild(zoomBtn);
-
-    const deleteBtn = document.createElement("button");
-    deleteBtn.className = "delete-btn";
-    deleteBtn.textContent = "🗑️";
-    deleteBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      removeFromMap(i);
-      rows.splice(i, 1);
-      expandedRows.delete(i);
-
-      // Adjust indices in expandedRows and map tracking
-      const newExpanded = new Set<number>();
-      expandedRows.forEach(idx => {
-        if (idx > i) newExpanded.add(idx - 1);
-        else if (idx < i) newExpanded.add(idx);
-      });
-      expandedRows = newExpanded;
-
-      // Adjust map tracking indices
-      const newMapSources = new Map<number, string>();
-      const newMapLayers = new Map<number, string[]>();
-      mapSources.forEach((sourceId, idx) => {
-        if (idx > i) newMapSources.set(idx - 1, sourceId);
-        else if (idx < i) newMapSources.set(idx, sourceId);
-      });
-      mapLayers.forEach((layerIds, idx) => {
-        if (idx > i) newMapLayers.set(idx - 1, layerIds);
-        else if (idx < i) newMapLayers.set(idx, layerIds);
-      });
-      mapSources.clear();
-      mapLayers.clear();
-      newMapSources.forEach((v, k) => mapSources.set(k, v));
-      newMapLayers.forEach((v, k) => mapLayers.set(k, v));
-
-      render();
-    });
-    buttonContainer.appendChild(deleteBtn);
-
-    header.appendChild(buttonContainer);
-
-    header.addEventListener("click", (e) => {
-      if ((e.target as HTMLElement).tagName !== "BUTTON") {
-        if (expandedRows.has(i)) {
-          expandedRows.delete(i);
-        } else {
-          expandedRows.add(i);
-        }
-        render();
-      }
-    });
-
-    const pre = document.createElement("pre");
-    pre.textContent = JSON.stringify(m.geojson, null, 2);
-
-    div.appendChild(header);
-    div.appendChild(pre);
-    logEl.appendChild(div);
+    const message = rows[i];
+    const rowElement = createRowElement(message, i);
+    messageLog.appendChild(rowElement);
   }
 }
 
+// ========================================
+// Initialization and Event Listeners
+// ========================================
+
+// Initialize theme
+applyTheme(getTheme());
+
+// Initialize auto-fit checkbox
+autofitCheckbox.checked = getAutoFit();
+autofitCheckbox.addEventListener("change", () => {
+  setAutoFit(autofitCheckbox.checked);
+  if (autofitCheckbox.checked) {
+    fitMapBounds();
+  }
+});
+
+// Initialize map
+initMap();
+
+// Clear button
 clearBtn.addEventListener("click", () => {
   clearMap();
   rows = [];
@@ -593,6 +656,8 @@ clearBtn.addEventListener("click", () => {
   render();
 });
 
+// Theme toggle button
 themeToggle.addEventListener("click", cycleTheme);
 
+// Connect to WebSocket
 connect();
