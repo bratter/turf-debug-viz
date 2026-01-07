@@ -31,6 +31,29 @@ const MAP_FIT_OPTIONS = {
 } as const;
 const WEBSOCKET_RECONNECT_DELAY = 300;
 
+// TokyoNight color palettes for feature visualization
+const COLOR_PALETTE_LIGHT = [
+  "#2e7de9", // blue
+  "#587539", // green
+  "#9854f1", // purple
+  "#007197", // cyan
+  "#b15c00", // orange
+  "#7847bd", // magenta
+  "#8c6c3e", // yellow
+  "#f52a65", // red
+];
+
+const COLOR_PALETTE_DARK = [
+  "#82aaff", // blue
+  "#c3e88d", // green
+  "#fca7ea", // purple
+  "#86e1fc", // cyan
+  "#ff966c", // orange
+  "#c099ff", // magenta
+  "#ffc777", // yellow
+  "#ff757f", // red
+];
+
 // ========================================
 // DOM Element References
 // ========================================
@@ -49,6 +72,7 @@ const mapContainerParent = document.getElementById("content") as HTMLDivElement;
 let webSocket: WebSocket | undefined;
 let rows: DebugMessage[] = [];
 let expandedRows = new Set<number>();
+let hiddenRows = new Set<number>(); // Track which rows are hidden from map
 
 let map: MapboxMap | undefined;
 let currentMapStyle: string | undefined;
@@ -116,15 +140,19 @@ function applyTheme(theme: Theme): void {
       map.setStyle(newStyle);
     }
   }
+
+  // Update row color swatches
+  render();
 }
 
 // Update colors of existing map features
 function updateMapColors(): void {
   if (!map) return;
 
-  const color = getFeatureColor(getTheme());
+  const theme = getTheme();
 
   mapSources.forEach((_, index) => {
+    const color = getFeatureColor(index, theme);
 
     map!.setPaintProperty(`layer-${index}-fill`, "fill-color", color);
     map!.setPaintProperty(`layer-${index}-line`, "line-color", color);
@@ -220,10 +248,11 @@ function zoomToFeature(index: number): void {
   map.fitBounds(bounds, MAP_FIT_OPTIONS);
 }
 
-// Get theme-appropriate color for map features
-function getFeatureColor(theme: Theme): string {
+// Get theme-appropriate color for map features using indexed palette
+function getFeatureColor(index: number, theme: Theme): string {
   const isDark = theme === "dark" || (theme === "system" && prefersDark());
-  return isDark ? "#60A5FF" : "#4080FF";
+  const palette = isDark ? COLOR_PALETTE_DARK : COLOR_PALETTE_LIGHT;
+  return palette[index % palette.length];
 }
 
 // Add GeoJSON to map
@@ -241,7 +270,7 @@ function addToMap(index: number, message: DebugMessage): void {
 
     mapSources.set(index, sourceId);
 
-    const color = getFeatureColor(getTheme());
+    const color = getFeatureColor(index, getTheme());
 
     // Add all layer types for each shape
     // This is wasteful (as is having multiple sources), but easier to manage for MVP
@@ -311,6 +340,33 @@ function removeFromMap(index: number, fitBounds = true): void {
     }
   } catch (err) {
     console.error(`Failed to remove GeoJSON from map for row ${index}:`, err);
+  }
+}
+
+// Toggle visibility of a feature on the map
+function toggleVisibility(index: number): void {
+  if (!map || !mapSources.has(index)) return;
+
+  try {
+    const isHidden = hiddenRows.has(index);
+    const visibility = isHidden ? "visible" : "none";
+
+    // Toggle layer visibility
+    map.setLayoutProperty(`layer-${index}-fill`, "visibility", visibility);
+    map.setLayoutProperty(`layer-${index}-line`, "visibility", visibility);
+    map.setLayoutProperty(`layer-${index}-circle`, "visibility", visibility);
+
+    // Update state
+    if (isHidden) {
+      hiddenRows.delete(index);
+    } else {
+      hiddenRows.add(index);
+    }
+
+    // Re-render to update row styling
+    render();
+  } catch (err) {
+    console.error(`Failed to toggle visibility for row ${index}:`, err);
   }
 }
 
@@ -390,6 +446,14 @@ function adjustIndicesAfterDeletion(deletedIndex: number): void {
   });
   expandedRows = newExpanded;
 
+  // Adjust hiddenRows indices
+  const newHidden = new Set<number>();
+  hiddenRows.forEach((idx) => {
+    if (idx > deletedIndex) newHidden.add(idx - 1);
+    else if (idx < deletedIndex) newHidden.add(idx);
+  });
+  hiddenRows = newHidden;
+
   // Adjust map tracking indices
   const newMapSources = new Map<number, string>();
   mapSources.forEach((sourceId, idx) => {
@@ -405,14 +469,24 @@ function deleteRow(index: number): void {
   removeFromMap(index);
   rows.splice(index, 1);
   expandedRows.delete(index);
+  hiddenRows.delete(index);
   adjustIndicesAfterDeletion(index);
   render();
 }
 
-// Create action buttons (zoom and delete) for a row
+// Create action buttons (visibility, zoom, and delete) for a row
 function createActionButtons(index: number): HTMLDivElement {
   const buttonContainer = document.createElement("div");
   buttonContainer.className = "row-buttons";
+
+  const visibilityBtn = document.createElement("button");
+  visibilityBtn.className = "visibility-btn";
+  visibilityBtn.textContent = "👁️";
+  visibilityBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    toggleVisibility(index);
+  });
+  buttonContainer.appendChild(visibilityBtn);
 
   const zoomBtn = document.createElement("button");
   zoomBtn.className = "zoom-btn";
@@ -466,8 +540,20 @@ function createRowHeader(message: DebugMessage, index: number): HTMLDivElement {
 // Create a complete row element
 function createRowElement(message: DebugMessage, index: number): HTMLDivElement {
   const isExpanded = expandedRows.has(index);
+  const isHidden = hiddenRows.has(index);
   const rowElement = document.createElement("div");
-  rowElement.className = isExpanded ? "row" : "row collapsed";
+
+  // Build class names
+  const classNames = ["row"];
+  if (!isExpanded) classNames.push("collapsed");
+  if (isHidden) classNames.push("hidden");
+  rowElement.className = classNames.join(" ");
+
+  // Add color swatch using border-left
+  const color = getFeatureColor(index, getTheme());
+  // Reduce opacity for hidden rows
+  const borderColor = isHidden ? color + "40" : color; // 40 = 25% opacity in hex
+  rowElement.style.borderLeftColor = borderColor;
 
   const header = createRowHeader(message, index);
   rowElement.appendChild(header);
@@ -514,6 +600,7 @@ clearBtn.addEventListener("click", () => {
   clearMap();
   rows = [];
   expandedRows.clear();
+  hiddenRows.clear();
   render();
 });
 

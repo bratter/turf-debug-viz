@@ -193,16 +193,23 @@ header {
 #log {
   flex: 1;
   overflow: auto;
-  padding: var(--space-md);
+  padding: var(--space-sm);
+  padding-left: 0;
 }
 
 .row {
   border-bottom: var(--border-width) solid var(--color-border);
-  padding: var(--space-sm) 0;
+  border-left: var(--space-xs) solid var(--color-bg);
+  padding: var(--space-sm);
+  padding-right: 0;
 }
 
 .row:last-child {
   border-bottom: none;
+}
+
+.row.hidden .meta {
+  text-decoration: line-through;
 }
 
 .meta {
@@ -266,6 +273,7 @@ button:hover {
 }
 
 
+.visibility-btn,
 .zoom-btn,
 .delete-btn {
   padding: var(--space-xs);
