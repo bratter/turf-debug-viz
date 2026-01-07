@@ -243,6 +243,34 @@ function fitMapBounds(): void {
   }
 }
 
+// Zoom map to a single feature
+function zoomToFeature(index: number): void {
+  if (!map || index >= rows.length) return;
+
+  try {
+    const row = rows[index];
+    const features = normalizeToFeatures(row.geojson);
+    const bounds = new mapboxgl.LngLatBounds();
+    let hasFeatures = false;
+
+    features.forEach((feature) => {
+      if (feature.geometry) {
+        const coords = extractCoordinates(feature.geometry);
+        coords.forEach(([lng, lat]) => {
+          bounds.extend([lng, lat]);
+          hasFeatures = true;
+        });
+      }
+    });
+
+    if (hasFeatures) {
+      map.fitBounds(bounds, { padding: 50, maxZoom: 15, duration: 500 });
+    }
+  } catch (err) {
+    console.error(`Failed to zoom to feature ${index}:`, err);
+  }
+}
+
 // Helper to extract all coordinates from a geometry
 function extractCoordinates(geometry: Geometry): number[][] {
   const coords: number[][] = [];
@@ -484,12 +512,24 @@ function render(): void {
     header.className = "meta";
 
     const labelSpan = document.createElement("span");
-    labelSpan.textContent = `[${ts}] ${m.label ?? "(no label)"}`;
+    labelSpan.innerHTML = `${m.label ?? "(no label)"}<br>[${ts}]`;
     header.appendChild(labelSpan);
+
+    const buttonContainer = document.createElement("div");
+    buttonContainer.className = "row-buttons";
+
+    const zoomBtn = document.createElement("button");
+    zoomBtn.className = "zoom-btn";
+    zoomBtn.textContent = "🔍";
+    zoomBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      zoomToFeature(i);
+    });
+    buttonContainer.appendChild(zoomBtn);
 
     const deleteBtn = document.createElement("button");
     deleteBtn.className = "delete-btn";
-    deleteBtn.textContent = "×";
+    deleteBtn.textContent = "🗑️";
     deleteBtn.addEventListener("click", (e) => {
       e.stopPropagation();
       removeFromMap(i);
@@ -522,7 +562,9 @@ function render(): void {
 
       render();
     });
-    header.appendChild(deleteBtn);
+    buttonContainer.appendChild(deleteBtn);
+
+    header.appendChild(buttonContainer);
 
     header.addEventListener("click", (e) => {
       if ((e.target as HTMLElement).tagName !== "BUTTON") {
