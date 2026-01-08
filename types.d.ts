@@ -25,10 +25,8 @@ export interface DebugMessage {
  * declare global {
  *   namespace DebugViz {
  *     function send(label: string, geojson: GeoJSON): void;
- *     function sendAsync(label: string, geojson: GeoJSON): void;
  *     function disconnect(): void;
  *     function isConnected(): boolean;
- *     function queueLen(): number;
  *   }
  *   var DebugViz: typeof DebugViz;
  * }
@@ -40,41 +38,30 @@ declare global {
    */
   namespace DebugViz {
     /**
-     * Synchronously sends a GeoJSON object to the debug visualizer (default)
+     * Synchronously sends a GeoJSON object to the debug visualizer.
      * Blocks until connection is established and message is sent.
      * Works correctly when stepping through code in a debugger.
+     *
+     * Note: This API is intentionally synchronous for debug instrumentation.
+     * It ensures messages are sent before continuing execution, which is
+     * essential when stepping through code in a debugger.
+     *
      * @param label - A label to identify this debug output
      * @param geojson - Any valid GeoJSON object (Geometry, Feature, or FeatureCollection)
      */
     function send(label: string, geojson: GeoJSON): void;
 
     /**
-     * Asynchronously sends a GeoJSON object to the debug visualizer
-     * Does not block - queues messages if not connected.
-     * Use for high-frequency sends where blocking is undesirable.
-     * @param label - A label to identify this debug output
-     * @param geojson - Any valid GeoJSON object (Geometry, Feature, or FeatureCollection)
-     */
-    function sendAsync(label: string, geojson: GeoJSON): void;
-
-    /**
-     * Disconnects from the debug relay server
-     * Call this when you're done debugging to close the WebSocket connection.
-     * Note: Connection automatically closes on process exit.
+     * Disconnects from the debug relay server.
+     * Note: Not required for process exit - WebSocket is unref'd and won't prevent exit.
      */
     function disconnect(): void;
 
     /**
-     * Check if currently connected to the debug relay server
+     * Check if currently connected to the debug relay server.
      * @returns true if WebSocket connection is open
      */
     function isConnected(): boolean;
-
-    /**
-     * Number of messages in the queue to the relay server.
-     * @returns number
-     */
-    function queueLen(): number;
   }
 }
 

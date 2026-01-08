@@ -67,6 +67,7 @@ DebugViz.send("test-collection", {
 });
 
 // Test disconnect functionality
+// Note that this is not required as the .unref in export-hook will auto-exit
 setTimeout(() => {
   console.log("Messages sent. Check connection status...");
   console.log("Connected:", DebugViz.isConnected());
