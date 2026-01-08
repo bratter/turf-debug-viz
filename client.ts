@@ -18,6 +18,13 @@ interface DebugMessage {
   geojson: GeoJSON;
 }
 
+interface RowData extends DebugMessage {
+  // Stable index assigned at insertion
+  index: number;
+  isExpanded: boolean;
+  isHidden: boolean;
+}
+
 // ========================================
 // Constants
 // ========================================
@@ -70,13 +77,10 @@ const mapContainerParent = document.getElementById("content") as HTMLDivElement;
 // ========================================
 
 let webSocket: WebSocket | undefined;
-let rows: DebugMessage[] = [];
-let expandedRows = new Set<number>();
-let hiddenRows = new Set<number>(); // Track which rows are hidden from map
-
+let rows: RowData[] = [];
+let nextIndex = 0; // Global counter for stable row indices
 let map: MapboxMap | undefined;
 let currentMapStyle: string | undefined;
-const mapSources = new Map<number, string>(); // row index -> source ID
 
 // ========================================
 // Theme Management
@@ -84,20 +88,48 @@ const mapSources = new Map<number, string>(); // row index -> source ID
 
 type Theme = "system" | "light" | "dark";
 
-function getTheme(): Theme {
-  const stored = localStorage.getItem(STORAGE_KEY_THEME);
-  if (stored === "light" || stored === "dark" || stored === "system") {
-    return stored;
-  }
-  return "system";
+function getThemeName(): Theme {
+  return localStorage.getItem(STORAGE_KEY_THEME) as Theme | null ?? "system";
 }
 
 function setTheme(theme: Theme): void {
+  // Get the current map style before we override anything
+  const currentMapStyle = getMapStyle(getThemeName());
+
   localStorage.setItem(STORAGE_KEY_THEME, theme);
-  applyTheme(theme);
+
+  if (theme === "system") {
+    document.documentElement.removeAttribute("data-theme");
+    themeToggle.textContent = "System";
+  } else {
+    document.documentElement.setAttribute("data-theme", theme);
+    themeToggle.textContent = theme === "light" ? "Light" : "Dark";
+  }
+
+  // Update map style if the map exists, which it may not becuase the theme is
+  // set before the map is rendered
+  if (map) {
+    const newStyle = getMapStyle(theme);
+
+    // If style URL has changed, set it on the map, this will re-add all the
+    // shapes. If it hasn't changed, just in case ensure the colors are updates
+    if (newStyle !== currentMapStyle) {
+      map!.setStyle(newStyle);
+    } else {
+      rows.forEach((row) => {
+        const color = getFeatureColor(row.index, theme);
+
+        map!.setPaintProperty(`layer-${row.index}-fill`, "fill-color", color);
+        map!.setPaintProperty(`layer-${row.index}-line`, "line-color", color);
+        map!.setPaintProperty(`layer-${row.index}-circle`, "circle-color", color);
+      });
+    }
+  }
+
+  // Update row color swatches
+  renderMessageLog();
 }
 
-// Auto-fit management
 function getAutoFit(): boolean {
   const stored = localStorage.getItem(STORAGE_KEY_AUTOFIT);
   return stored !== "false"; // Default to true
@@ -119,49 +151,8 @@ function getMapStyle(theme: Theme): string {
   }
 }
 
-function applyTheme(theme: Theme): void {
-  if (theme === "system") {
-    document.documentElement.removeAttribute("data-theme");
-    themeToggle.textContent = "System";
-  } else {
-    document.documentElement.setAttribute("data-theme", theme);
-    themeToggle.textContent = theme === "light" ? "Light" : "Dark";
-  }
-
-  // Update map style if map exists
-  if (map) {
-    const newStyle = getMapStyle(theme);
-
-    // If style URL is the same, just update colors
-    if (newStyle === currentMapStyle) {
-      updateMapColors();
-    } else {
-      currentMapStyle = newStyle;
-      map.setStyle(newStyle);
-    }
-  }
-
-  // Update row color swatches
-  render();
-}
-
-// Update colors of existing map features
-function updateMapColors(): void {
-  if (!map) return;
-
-  const theme = getTheme();
-
-  mapSources.forEach((_, index) => {
-    const color = getFeatureColor(index, theme);
-
-    map!.setPaintProperty(`layer-${index}-fill`, "fill-color", color);
-    map!.setPaintProperty(`layer-${index}-line`, "line-color", color);
-    map!.setPaintProperty(`layer-${index}-circle`, "circle-color", color);
-  });
-}
-
 function cycleTheme(): void {
-  const current = getTheme();
+  const current = getThemeName();
   const next: Theme = current === "system" ? "light" : current === "light" ? "dark" : "system";
   setTheme(next);
 }
@@ -180,7 +171,7 @@ function initMap(): void {
   mapContainerParent.appendChild(mapContainer);
 
   // Create map instance
-  const initialStyle = getMapStyle(getTheme());
+  const initialStyle = getMapStyle(getThemeName());
   currentMapStyle = initialStyle;
 
   map = new mapboxgl.Map({
@@ -193,19 +184,10 @@ function initMap(): void {
   // Add navigation controls
   map.addControl(new mapboxgl.NavigationControl());
 
-  // Re-add all existing features when style loads
+  // When style changes (e.g., theme switch), re-add all features
+  // because mapbox deletes them
   map.on("style.load", () => {
-    // When style changes (e.g., theme switch), re-add all features
-    const currentSources = new Map(mapSources);
-
-    mapSources.clear();
-
-    rows.forEach((row, index) => {
-      // Only re-add if it was previously on the map
-      if (currentSources.has(index)) {
-        addToMap(index, row);
-      }
-    });
+    rows.forEach(addToMap);
   });
 }
 
@@ -225,11 +207,12 @@ function normalizeToFeatures(geojson: GeoJSON): Feature | FeatureCollection {
 
 // Fit map bounds to show all features
 function fitMapBounds(): void {
-  if (!map || !getAutoFit() || !mapSources.size) return;
+  if (!map || !getAutoFit() || !rows.length) return;
 
   const bounds = [Infinity, Infinity, -Infinity, -Infinity] as any;
-  for (const idx of mapSources.keys()) {
-    const cur = bbox(rows[idx].geojson);
+
+  for (const row of rows) {
+    const cur = bbox(row.geojson);
     bounds[0] = cur[0] < bounds[0] ? cur[0] : bounds[0];
     bounds[1] = cur[1] < bounds[1] ? cur[1] : bounds[1];
     bounds[2] = cur[2] > bounds[2] ? cur[2] : bounds[2];
@@ -241,9 +224,10 @@ function fitMapBounds(): void {
 
 // Zoom map to a single feature
 function zoomToFeature(index: number): void {
-  if (!map || index >= rows.length) return;
+  const row = rows.find((r) => r.index === index);
+  if (!map || !row) return;
 
-  const bounds = bbox(rows[index].geojson) as mapboxgl.LngLatBoundsLike;
+  const bounds = bbox(row.geojson) as mapboxgl.LngLatBoundsLike;
 
   map.fitBounds(bounds, MAP_FIT_OPTIONS);
 }
@@ -256,27 +240,21 @@ function getFeatureColor(index: number, theme: Theme): string {
 }
 
 // Add GeoJSON to map
-function addToMap(index: number, message: DebugMessage): void {
-  if (!map) return;
-
+function addToMap(row: RowData): void {
   try {
-    const sourceId = `source-${index}`;
+    const sourceId = `source-${row.index}`;
+    const color = getFeatureColor(row.index, getThemeName());
 
     // Add source
-    map.addSource(sourceId, {
+    map!.addSource(sourceId, {
       type: "geojson",
-      data: normalizeToFeatures(message.geojson),
+      data: normalizeToFeatures(row.geojson),
     });
-
-    mapSources.set(index, sourceId);
-
-    const color = getFeatureColor(index, getTheme());
 
     // Add all layer types for each shape
     // This is wasteful (as is having multiple sources), but easier to manage for MVP
-    const fillLayerId = `layer-${index}-fill`;
-    map.addLayer({
-      id: fillLayerId,
+    map!.addLayer({
+      id: `layer-${row.index}-fill`,
       type: "fill",
       source: sourceId,
       paint: {
@@ -286,9 +264,8 @@ function addToMap(index: number, message: DebugMessage): void {
       filter: ["in", ["geometry-type"], ["literal", ["Polygon", "MultiPolygon"]]],
     });
 
-    const lineLayerId = `layer-${index}-line`;
-    map.addLayer({
-      id: lineLayerId,
+    map!.addLayer({
+      id: `layer-${row.index}-line`,
       type: "line",
       source: sourceId,
       paint: {
@@ -298,9 +275,8 @@ function addToMap(index: number, message: DebugMessage): void {
       filter: ["in", ["geometry-type"], ["literal", ["LineString", "MultiLineString", "Polygon", "MultiPolygon"]]],
     });
 
-    const circleLayerId = `layer-${index}-circle`;
-    map.addLayer({
-      id: circleLayerId,
+    map!.addLayer({
+      id: `layer-${row.index}-circle`,
       type: "circle",
       source: sourceId,
       paint: {
@@ -309,35 +285,19 @@ function addToMap(index: number, message: DebugMessage): void {
       },
       filter: ["in", ["geometry-type"], ["literal", ["Point", "MultiPoint"]]],
     });
-
-    // Fit bounds if auto-fit is enabled
-    fitMapBounds();
   } catch (err) {
-    console.error(`Failed to add GeoJSON to map for row ${index}:`, err);
+    console.error(`Failed to add GeoJSON to map for row ${row.index}:`, err);
   }
 }
 
 // Remove GeoJSON from map
 function removeFromMap(index: number, fitBounds = true): void {
-  if (!map) return;
-
   try {
-    // Remove layers
+    // Remove layers first, then source (ordering is required)
     map!.removeLayer(`layer-${index}-fill`);
     map!.removeLayer(`layer-${index}-line`);
     map!.removeLayer(`layer-${index}-circle`);
-
-    // Remove source
-    const sourceId = mapSources.get(index);
-    if (sourceId && map.getSource(sourceId)) {
-      map.removeSource(sourceId);
-      mapSources.delete(index);
-    }
-
-    // Refit bounds if auto-fit is enabled
-    if (fitBounds) {
-      fitMapBounds();
-    }
+    map!.removeSource(`source-${index}`);
   } catch (err) {
     console.error(`Failed to remove GeoJSON from map for row ${index}:`, err);
   }
@@ -345,26 +305,20 @@ function removeFromMap(index: number, fitBounds = true): void {
 
 // Toggle visibility of a feature on the map
 function toggleVisibility(index: number): void {
-  if (!map || !mapSources.has(index)) return;
+  const row = rows.find((r) => r.index === index);
+  if (!map || !row) return;
 
   try {
-    const isHidden = hiddenRows.has(index);
-    const visibility = isHidden ? "visible" : "none";
+    row.isHidden = !row.isHidden;
+    const visibility = row.isHidden ? "none" : "visible";
 
     // Toggle layer visibility
     map.setLayoutProperty(`layer-${index}-fill`, "visibility", visibility);
     map.setLayoutProperty(`layer-${index}-line`, "visibility", visibility);
     map.setLayoutProperty(`layer-${index}-circle`, "visibility", visibility);
 
-    // Update state
-    if (isHidden) {
-      hiddenRows.delete(index);
-    } else {
-      hiddenRows.add(index);
-    }
-
     // Re-render to update row styling
-    render();
+    renderMessageLog();
   } catch (err) {
     console.error(`Failed to toggle visibility for row ${index}:`, err);
   }
@@ -372,17 +326,12 @@ function toggleVisibility(index: number): void {
 
 // Clear all GeoJSON from map
 function clearMap(): void {
-  if (!map) return;
-
   try {
     // Remove all sources
-    mapSources.forEach((_, index) => {
-      removeFromMap(index, false);
-    });
-    mapSources.clear();
+    rows.forEach((row) => removeFromMap(row.index, false));
 
     // Reset to world view
-    map.flyTo({ center: [0, 0], zoom: 1, duration: MAP_FIT_OPTIONS.duration });
+    map!.flyTo({ center: [0, 0], zoom: 1, duration: MAP_FIT_OPTIONS.duration });
   } catch (err) {
     console.error("Failed to clear map:", err);
   }
@@ -425,10 +374,18 @@ function connect(): void {
       return;
     }
 
-    const newIndex = rows.length;
-    rows.push(msg);
-    addToMap(newIndex, msg);
-    render();
+    // Create RowData with stable index and initial state
+    const row: RowData = {
+      ...msg,
+      index: nextIndex++,
+      isExpanded: false,
+      isHidden: false,
+    };
+
+    rows.push(row);
+    addToMap(row);
+    renderMessageLog();
+    fitMapBounds();
   });
 }
 
@@ -436,42 +393,15 @@ function connect(): void {
 // Rendering Functions
 // ========================================
 
-// Adjust all tracking indices after deleting a row
-function adjustIndicesAfterDeletion(deletedIndex: number): void {
-  // Adjust expandedRows indices
-  const newExpanded = new Set<number>();
-  expandedRows.forEach((idx) => {
-    if (idx > deletedIndex) newExpanded.add(idx - 1);
-    else if (idx < deletedIndex) newExpanded.add(idx);
-  });
-  expandedRows = newExpanded;
-
-  // Adjust hiddenRows indices
-  const newHidden = new Set<number>();
-  hiddenRows.forEach((idx) => {
-    if (idx > deletedIndex) newHidden.add(idx - 1);
-    else if (idx < deletedIndex) newHidden.add(idx);
-  });
-  hiddenRows = newHidden;
-
-  // Adjust map tracking indices
-  const newMapSources = new Map<number, string>();
-  mapSources.forEach((sourceId, idx) => {
-    if (idx > deletedIndex) newMapSources.set(idx - 1, sourceId);
-    else if (idx < deletedIndex) newMapSources.set(idx, sourceId);
-  });
-  mapSources.clear();
-  newMapSources.forEach((v, k) => mapSources.set(k, v));
-}
-
-// Delete a row and adjust all indices
+// Delete a row by its stable index
 function deleteRow(index: number): void {
+  const arrayIndex = rows.findIndex((row) => row.index === index);
+  if (arrayIndex === -1) return;
+
   removeFromMap(index);
-  rows.splice(index, 1);
-  expandedRows.delete(index);
-  hiddenRows.delete(index);
-  adjustIndicesAfterDeletion(index);
-  render();
+  rows.splice(arrayIndex, 1);
+  renderMessageLog();
+  fitMapBounds();
 }
 
 // Create action buttons (visibility, zoom, and delete) for a row
@@ -510,27 +440,23 @@ function createActionButtons(index: number): HTMLDivElement {
 }
 
 // Create header element for a row
-function createRowHeader(message: DebugMessage, index: number): HTMLDivElement {
+function createRowHeader(row: RowData): HTMLDivElement {
   const header = document.createElement("div");
   header.className = "meta";
 
-  const ts = new Date(message.ts || Date.now()).toISOString();
+  const ts = new Date(row.ts || Date.now()).toISOString();
   const labelSpan = document.createElement("span");
-  labelSpan.innerHTML = `${message.label ?? "(no label)"}<br>[${ts}]`;
+  labelSpan.innerHTML = `${row.label ?? "(no label)"}<br>[${ts}]`;
   header.appendChild(labelSpan);
 
-  const buttonContainer = createActionButtons(index);
+  const buttonContainer = createActionButtons(row.index);
   header.appendChild(buttonContainer);
 
   // Toggle expand/collapse on header click
   header.addEventListener("click", (e) => {
     if ((e.target as HTMLElement).tagName !== "BUTTON") {
-      if (expandedRows.has(index)) {
-        expandedRows.delete(index);
-      } else {
-        expandedRows.add(index);
-      }
-      render();
+      row.isExpanded = !row.isExpanded;
+      renderMessageLog();
     }
   });
 
@@ -538,40 +464,38 @@ function createRowHeader(message: DebugMessage, index: number): HTMLDivElement {
 }
 
 // Create a complete row element
-function createRowElement(message: DebugMessage, index: number): HTMLDivElement {
-  const isExpanded = expandedRows.has(index);
-  const isHidden = hiddenRows.has(index);
+function createRowElement(row: RowData): HTMLDivElement {
   const rowElement = document.createElement("div");
 
   // Build class names
   const classNames = ["row"];
-  if (!isExpanded) classNames.push("collapsed");
-  if (isHidden) classNames.push("hidden");
+  if (!row.isExpanded) classNames.push("collapsed");
+  if (row.isHidden) classNames.push("hidden");
   rowElement.className = classNames.join(" ");
 
   // Add color swatch using border-left
-  const color = getFeatureColor(index, getTheme());
+  const color = getFeatureColor(row.index, getThemeName());
   // Reduce opacity for hidden rows
-  const borderColor = isHidden ? color + "40" : color; // 40 = 25% opacity in hex
+  const borderColor = row.isHidden ? color + "40" : color; // 40 = 25% opacity in hex
   rowElement.style.borderLeftColor = borderColor;
 
-  const header = createRowHeader(message, index);
+  const header = createRowHeader(row);
   rowElement.appendChild(header);
 
   const pre = document.createElement("pre");
-  pre.textContent = JSON.stringify(message.geojson, null, 2);
+  pre.textContent = JSON.stringify(row.geojson, null, 2);
   rowElement.appendChild(pre);
 
   return rowElement;
 }
 
-function render(): void {
+function renderMessageLog(): void {
   messageLog.innerHTML = "";
 
   // Display in reverse order of arrival (most recent first)
   for (let i = rows.length - 1; i >= 0; i--) {
-    const message = rows[i];
-    const rowElement = createRowElement(message, i);
+    const row = rows[i];
+    const rowElement = createRowElement(row);
     messageLog.appendChild(rowElement);
   }
 }
@@ -580,8 +504,9 @@ function render(): void {
 // Initialization and Event Listeners
 // ========================================
 
-// Initialize theme
-applyTheme(getTheme());
+// Initialize theme and toggle
+setTheme(getThemeName());
+themeToggle.addEventListener("click", cycleTheme);
 
 // Initialize auto-fit checkbox
 autofitCheckbox.checked = getAutoFit();
@@ -599,13 +524,9 @@ initMap();
 clearBtn.addEventListener("click", () => {
   clearMap();
   rows = [];
-  expandedRows.clear();
-  hiddenRows.clear();
-  render();
+  nextIndex = 0;
+  renderMessageLog();
 });
-
-// Theme toggle button
-themeToggle.addEventListener("click", cycleTheme);
 
 // Connect to WebSocket
 connect();
