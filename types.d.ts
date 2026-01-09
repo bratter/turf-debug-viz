@@ -17,22 +17,15 @@ export interface DebugMessage {
 /**
  * Global type declarations for the export hook
  *
- * To use in your TypeScript project, add this to your code or a .d.ts file:
+ * The best way to use is a reference path in the system under test:
  *
  * ```typescript
- * import type { GeoJSON } from "geojson";
- *
- * declare global {
- *   namespace DebugViz {
- *     function send(label: string, geojson: GeoJSON): void;
- *     function disconnect(): void;
- *     function isConnected(): boolean;
- *   }
- *   var DebugViz: typeof DebugViz;
- * }
+ * /// <reference path="/path/to/turf-debug-viz/types.d.ts" />
  * ```
  */
 declare global {
+  var turf: typeof import("@turf/turf");
+
   /**
    * Debug visualization namespace for sending GeoJSON to the relay server
    */
