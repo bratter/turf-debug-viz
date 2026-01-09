@@ -5,13 +5,16 @@
  * Then run: npx tsx --import ./export-hook.ts test.ts
  */
 
+import { Point } from "geojson";
+
 console.log("Testing export hook with GeoJSON");
 
 // Test with a simple Point
-DebugViz.send("test-point", {
+const point: Point = {
   type: "Point",
   coordinates: [-122.4194, 37.7749],
-});
+};
+DebugViz.send("test-point", point);
 
 // Test with a Polygon near the test-point
 DebugViz.send("test-polygon", {
@@ -65,6 +68,9 @@ DebugViz.send("test-collection", {
     },
   ],
 });
+
+// Test access to turf
+console.log(turf.bbox(point));
 
 // Test disconnect functionality
 // Note that this is not required as the .unref in export-hook will auto-exit

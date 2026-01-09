@@ -9,6 +9,7 @@ import http from "node:http";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { exec } from "node:child_process";
 import { WebSocketServer, type WebSocket } from "ws";
 
 // Configuration from environment variables
@@ -105,8 +106,24 @@ function broadcastOthers(sender: WebSocket, raw: string) {
   }
 }
 
+function openBrowser(url: string) {
+  const command = process.platform === "win32"
+    ? `start ${url}`
+    : process.platform === "darwin"
+      ? `open ${url}`
+      : `xdg-open ${url}`;
+
+  exec(command, (err) => {
+    if (err) {
+      logger.debug("Failed to open browser:", err.message);
+    }
+  });
+}
+
 server.listen(PORT, HOST, () => {
-  logger.info(`Relay listening on http://${HOST}:${PORT}`);
+  const url = `http://${HOST}:${PORT}`;
+  logger.info(`Relay listening on ${url}`);
   logger.info(`WebSocket endpoint ws://${HOST}:${PORT}/ws`);
+  openBrowser(url);
 });
 

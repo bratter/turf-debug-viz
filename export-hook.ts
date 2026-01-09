@@ -15,6 +15,7 @@ import type { GeoJSON } from "geojson";
 import type { DebugMessage } from "./types.js";
 import WebSocket from "ws";
 import deasync from "deasync";
+import * as turf from "@turf/turf";
 
 const HOST = process.env.TURF_DEBUG_HOST ?? "127.0.0.1";
 const PORT = process.env.TURF_DEBUG_PORT ?? "7777";
@@ -109,6 +110,11 @@ class Connection {
 
 // Singleton instance - lazily created on first use
 let connection: Connection | undefined;
+
+// Make the entire turf library available as turf.* in the global scope
+// This is to easily facilitate access to turf manipulations without having
+// to install the workspace dependencies.
+globalThis.turf = turf;
 
 globalThis.DebugViz = {
   /**

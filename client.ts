@@ -6,9 +6,9 @@
 import type { GeoJSON, Feature, FeatureCollection } from "geojson";
 import type { Map as MapboxMap } from "mapbox-gl";
 import { config } from "./config.js";
-import { feature } from "@turf/helpers";
-import bbox from "@turf/bbox";
 
+// Turf is loaded locally via a script tag
+declare const turf: typeof import("@turf/turf");
 // MapBox GL is loaded via CDN script tag
 declare const mapboxgl: typeof import("mapbox-gl");
 
@@ -201,7 +201,7 @@ function normalizeToFeatures(geojson: GeoJSON): Feature | FeatureCollection {
     case "Feature": return geojson;
     case "FeatureCollection": return geojson;
     // It's a geometry
-    default: return feature(geojson);
+    default: return turf.feature(geojson);
   }
 }
 
@@ -212,7 +212,7 @@ function fitMapBounds(): void {
   const bounds = [Infinity, Infinity, -Infinity, -Infinity] as any;
 
   for (const row of rows) {
-    const cur = bbox(row.geojson);
+    const cur = turf.bbox(row.geojson);
     bounds[0] = cur[0] < bounds[0] ? cur[0] : bounds[0];
     bounds[1] = cur[1] < bounds[1] ? cur[1] : bounds[1];
     bounds[2] = cur[2] > bounds[2] ? cur[2] : bounds[2];
@@ -227,7 +227,7 @@ function zoomToFeature(index: number): void {
   const row = rows.find((r) => r.index === index);
   if (!map || !row) return;
 
-  const bounds = bbox(row.geojson) as mapboxgl.LngLatBoundsLike;
+  const bounds = turf.bbox(row.geojson) as mapboxgl.LngLatBoundsLike;
 
   map.fitBounds(bounds, MAP_FIT_OPTIONS);
 }
