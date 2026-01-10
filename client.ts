@@ -75,6 +75,7 @@ const clearBtn = document.getElementById("clear") as HTMLButtonElement;
 const zoomToFitBtn = document.getElementById("zoom-to-fit") as HTMLButtonElement;
 const themeToggle = document.getElementById("theme-toggle") as HTMLButtonElement;
 const autofitCheckbox = document.getElementById("autofit-checkbox") as HTMLInputElement;
+const showVerticesCheckbox = document.getElementById("show-vertices-checkbox") as HTMLInputElement;
 
 // ========================================
 // State Variables
@@ -331,7 +332,7 @@ function addToMap(row: RowData): void {
         "circle-color": color,
         "circle-radius": 5,
       },
-      filter: ["in", ["geometry-type"], ["literal", ["Point", "MultiPoint"]]],
+      filter: getCircleFilter(),
     });
     map!.addLayer({
       id: `${pointLayerId}-hitzone`,
@@ -404,6 +405,25 @@ function toggleVisibility(index: number): void {
   } catch (err) {
     console.error(`Failed to toggle visibility for row ${index}:`, err);
   }
+}
+
+function getCircleFilter() {
+  return showVerticesCheckbox.checked
+    ? ["in", ["geometry-type"], ["literal", ["Point", "MultiPoint", "LineString", "MultiLineString", "Polygon", "MultiPolygon"]]]
+    : ["in", ["geometry-type"], ["literal", ["Point", "MultiPoint"]]];
+}
+
+// Update all circle layer filters based on show vertices checkbox
+function updateCircleFilters(): void {
+  if (!map) return;
+
+  rows.forEach((row) => {
+    try {
+      map!.setFilter(`layer-${row.index}-circle`, getCircleFilter());
+    } catch (err) {
+      // Layer might not exist yet, ignore error
+    }
+  });
 }
 
 // Clear all GeoJSON from map
@@ -637,6 +657,9 @@ autofitCheckbox.addEventListener("change", () => {
   setAutoFit(autofitCheckbox.checked);
   if (getAutoFit()) fitMapBounds();
 });
+
+// Show vertices checkbox
+showVerticesCheckbox.addEventListener("change", updateCircleFilters);
 
 // Initialize sidebar visibility
 if (!getSidebarVisible()) {

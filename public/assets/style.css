@@ -171,7 +171,8 @@ header {
   align-items: center;
 }
 
-#autofit-label {
+#autofit-label,
+#show-vertices-label {
   display: flex;
   align-items: center;
   gap: var(--space-xs);
@@ -181,13 +182,8 @@ header {
   color: var(--color-fg);
 }
 
-/* Position on the right to skip the left slot */
-#clear {
-  grid-row: 2;
-  grid-column: 2;
-}
-
-#autofit-checkbox {
+#autofit-checkbox,
+#show-vertices-checkbox {
   cursor: pointer;
   margin-right: 0.25em;
 }
