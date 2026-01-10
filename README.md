@@ -34,6 +34,8 @@ npm install
 npm run build:client
 ```
 
+You must have a MapBox key for using the visualizer. Sign up for one on <https://www.mapbox.com/>, then copy `config.ts.example` to `config.ts` and paste the key into the appropriate location.
+
 ## Setting Up for Use
 
 ### Start the Relay Server

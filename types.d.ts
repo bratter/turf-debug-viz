@@ -9,7 +9,7 @@ import type { GeoJSON } from "geojson";
  * Debug message structure sent over the wire
  */
 export interface DebugMessage {
-  label: string;
+  label?: string | null;
   ts: number;
   geojson: GeoJSON;
 }
@@ -39,10 +39,10 @@ declare global {
      * It ensures messages are sent before continuing execution, which is
      * essential when stepping through code in a debugger.
      *
-     * @param label - A label to identify this debug output
      * @param geojson - Any valid GeoJSON object (Geometry, Feature, or FeatureCollection)
+     * @param label - A label to identify this debug output
      */
-    function send(label: string, geojson: GeoJSON): void;
+    function send(geojson: GeoJSON, label?: string): void;
 
     /**
      * Disconnects from the debug relay server.

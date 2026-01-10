@@ -13,7 +13,7 @@ declare const turf: typeof import("@turf/turf");
 declare const mapboxgl: typeof import("mapbox-gl");
 
 interface DebugMessage {
-  label: string;
+  label?: string | null;
   ts: number;
   geojson: GeoJSON;
 }
@@ -31,6 +31,7 @@ interface RowData extends DebugMessage {
 
 const STORAGE_KEY_THEME = "turf-debug-theme";
 const STORAGE_KEY_AUTOFIT = "turf-debug-autofit";
+const STORAGE_KEY_SIDEBAR = "turf-debug-sidebar";
 const MAP_FIT_OPTIONS = {
   padding: 50,
   maxZoom: 15,
@@ -66,11 +67,14 @@ const COLOR_PALETTE_DARK = [
 // ========================================
 
 const statusIndicator = document.getElementById("status") as HTMLDivElement;
+const sidebarToggleBtn = document.getElementById("sidebar-toggle") as HTMLButtonElement;
+const mapContainerParent = document.getElementById("content") as HTMLDivElement;
+const sidebar = document.getElementById("sidebar") as HTMLDivElement;
 const messageLog = document.getElementById("log") as HTMLDivElement;
 const clearBtn = document.getElementById("clear") as HTMLButtonElement;
+const zoomToFitBtn = document.getElementById("zoom-to-fit") as HTMLButtonElement;
 const themeToggle = document.getElementById("theme-toggle") as HTMLButtonElement;
 const autofitCheckbox = document.getElementById("autofit-checkbox") as HTMLInputElement;
-const mapContainerParent = document.getElementById("content") as HTMLDivElement;
 
 // ========================================
 // State Variables
@@ -81,6 +85,7 @@ let rows: RowData[] = [];
 let nextIndex = 0; // Global counter for stable row indices
 let map: MapboxMap | undefined;
 let currentMapStyle: string | undefined;
+let mapPopup: mapboxgl.Popup | undefined;
 
 // ========================================
 // Theme Management
@@ -139,6 +144,23 @@ function setAutoFit(enabled: boolean): void {
   localStorage.setItem(STORAGE_KEY_AUTOFIT, enabled.toString());
 }
 
+function getSidebarVisible(): boolean {
+  return localStorage.getItem(STORAGE_KEY_SIDEBAR) !== "false"; // Default true
+}
+
+function setSidebarVisible(visible: boolean): void {
+  localStorage.setItem(STORAGE_KEY_SIDEBAR, visible.toString());
+}
+
+function toggleSidebar(): void {
+  const isSidebarVisible = !sidebar.classList.contains("sidebar-collapsed");
+  const newVisibility = !isSidebarVisible;
+
+  setSidebarVisible(newVisibility);
+  sidebar.classList.toggle("sidebar-collapsed", !newVisibility);
+  map?.resize();
+}
+
 function prefersDark(): boolean {
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
 }
@@ -184,6 +206,13 @@ function initMap(): void {
   // Add navigation controls
   map.addControl(new mapboxgl.NavigationControl());
 
+  // Initialize reusable popup
+  mapPopup = new mapboxgl.Popup({
+    closeButton: false,
+    closeOnClick: false,
+    maxWidth: "300px",
+  });
+
   // When style changes (e.g., theme switch), re-add all features
   // because mapbox deletes them
   map.on("style.load", () => {
@@ -195,7 +224,7 @@ function initMap(): void {
 // Map Feature Management
 // ========================================
 
-// GeoJSON normalization - convert all GeoJSON types to Feature array
+// GeoJSON normalization
 function normalizeToFeatures(geojson: GeoJSON): Feature | FeatureCollection {
   switch (geojson.type) {
     case "Feature": return geojson;
@@ -206,12 +235,14 @@ function normalizeToFeatures(geojson: GeoJSON): Feature | FeatureCollection {
 }
 
 // Fit map bounds to show all features
-function fitMapBounds(): void {
-  if (!map || !getAutoFit() || !rows.length) return;
+function fitMapBounds(ignoreHidden = true): void {
+  if (!map || !rows.length) return;
 
   const bounds = [Infinity, Infinity, -Infinity, -Infinity] as any;
 
   for (const row of rows) {
+    if (ignoreHidden && row.isHidden) continue;
+
     const cur = turf.bbox(row.geojson);
     bounds[0] = cur[0] < bounds[0] ? cur[0] : bounds[0];
     bounds[1] = cur[1] < bounds[1] ? cur[1] : bounds[1];
@@ -244,6 +275,8 @@ function addToMap(row: RowData): void {
   try {
     const sourceId = `source-${row.index}`;
     const color = getFeatureColor(row.index, getThemeName());
+    // HTML for the tooltip
+    const metadataHTML = createMetadataHTML(row);
 
     // Add source
     map!.addSource(sourceId, {
@@ -253,8 +286,9 @@ function addToMap(row: RowData): void {
 
     // Add all layer types for each shape
     // This is wasteful (as is having multiple sources), but easier to manage for MVP
+    const fillLayerId = `layer-${row.index}-fill`;
     map!.addLayer({
-      id: `layer-${row.index}-fill`,
+      id: fillLayerId,
       type: "fill",
       source: sourceId,
       paint: {
@@ -263,9 +297,11 @@ function addToMap(row: RowData): void {
       },
       filter: ["in", ["geometry-type"], ["literal", ["Polygon", "MultiPolygon"]]],
     });
+    addPopupHandler(fillLayerId, metadataHTML);
 
+    const lineLayerId = `layer-${row.index}-line`;
     map!.addLayer({
-      id: `layer-${row.index}-line`,
+      id: lineLayerId,
       type: "line",
       source: sourceId,
       paint: {
@@ -274,9 +310,21 @@ function addToMap(row: RowData): void {
       },
       filter: ["in", ["geometry-type"], ["literal", ["LineString", "MultiLineString", "Polygon", "MultiPolygon"]]],
     });
-
     map!.addLayer({
-      id: `layer-${row.index}-circle`,
+      id: `${lineLayerId}-hitzone`,
+      type: "line",
+      source: sourceId,
+      paint: {
+        "line-color": "rgba(0, 0, 0, 0)",
+        "line-width": 20,
+      },
+      filter: ["in", ["geometry-type"], ["literal", ["LineString", "MultiLineString"]]],
+    });
+    addPopupHandler(`${lineLayerId}-hitzone`, metadataHTML);
+
+    const pointLayerId = `layer-${row.index}-circle`;
+    map!.addLayer({
+      id: pointLayerId,
       type: "circle",
       source: sourceId,
       paint: {
@@ -285,19 +333,51 @@ function addToMap(row: RowData): void {
       },
       filter: ["in", ["geometry-type"], ["literal", ["Point", "MultiPoint"]]],
     });
+    map!.addLayer({
+      id: `${pointLayerId}-hitzone`,
+      type: "circle",
+      source: sourceId,
+      paint: {
+        "circle-color": "rgba(0, 0, 0, 0)",
+        "circle-radius": 10,
+      },
+      filter: ["in", ["geometry-type"], ["literal", ["Point", "MultiPoint"]]],
+    });
+    addPopupHandler(`${pointLayerId}-hitzone`, metadataHTML);
+
   } catch (err) {
     console.error(`Failed to add GeoJSON to map for row ${row.index}:`, err);
   }
 }
 
+// Add a popup handler for the layer with the passed id
+function addPopupHandler(layerId: string, metadataHTML: string): void {
+  map!.on("mousemove", layerId, (e) => {
+    mapPopup!
+      .setLngLat(e.lngLat)
+      .setHTML(metadataHTML)
+      .addTo(map!);
+  });
+
+  // Mouse leave: hide popup
+  map!.on("mouseleave", layerId, () => {
+    mapPopup!.remove();
+  });
+}
+
 // Remove GeoJSON from map
-function removeFromMap(index: number, fitBounds = true): void {
+function removeFromMap(index: number): void {
   try {
     // Remove layers first, then source (ordering is required)
     map!.removeLayer(`layer-${index}-fill`);
     map!.removeLayer(`layer-${index}-line`);
+    map!.removeLayer(`layer-${index}-line-hitzone`);
     map!.removeLayer(`layer-${index}-circle`);
+    map!.removeLayer(`layer-${index}-circle-hitzone`);
     map!.removeSource(`source-${index}`);
+
+    // Remove popup if it's showing
+    mapPopup!.remove();
   } catch (err) {
     console.error(`Failed to remove GeoJSON from map for row ${index}:`, err);
   }
@@ -315,7 +395,9 @@ function toggleVisibility(index: number): void {
     // Toggle layer visibility
     map.setLayoutProperty(`layer-${index}-fill`, "visibility", visibility);
     map.setLayoutProperty(`layer-${index}-line`, "visibility", visibility);
+    map.setLayoutProperty(`layer-${index}-line-hitzone`, "visibility", visibility);
     map.setLayoutProperty(`layer-${index}-circle`, "visibility", visibility);
+    map.setLayoutProperty(`layer-${index}-circle-hitzone`, "visibility", visibility);
 
     // Re-render to update row styling
     renderMessageLog();
@@ -328,7 +410,7 @@ function toggleVisibility(index: number): void {
 function clearMap(): void {
   try {
     // Remove all sources
-    rows.forEach((row) => removeFromMap(row.index, false));
+    rows.forEach((row) => removeFromMap(row.index));
 
     // Reset to world view
     map!.flyTo({ center: [0, 0], zoom: 1, duration: MAP_FIT_OPTIONS.duration });
@@ -385,7 +467,7 @@ function connect(): void {
     rows.push(row);
     addToMap(row);
     renderMessageLog();
-    fitMapBounds();
+    if (getAutoFit()) fitMapBounds();
   });
 }
 
@@ -401,7 +483,7 @@ function deleteRow(index: number): void {
   removeFromMap(index);
   rows.splice(arrayIndex, 1);
   renderMessageLog();
-  fitMapBounds();
+  if (getAutoFit()) fitMapBounds();
 }
 
 // Create action buttons (visibility, zoom, and delete) for a row
@@ -439,16 +521,57 @@ function createActionButtons(index: number): HTMLDivElement {
   return buttonContainer;
 }
 
+function createMetadataHTML(row: RowData): string {
+  // Build display lines array
+  const displayLines: string[] = [];
+
+  // Line 1: Label (only if present)
+  if (row.label) {
+    displayLines.push(row.label);
+  }
+
+  // Line 2: Type information with optional ID
+  const gj = row.geojson;
+  let typeLine: string;
+
+  switch (gj.type) {
+    case "FeatureCollection":
+      typeLine = `${gj.type} (${gj.features.length})`;
+      break;
+    case "GeometryCollection":
+      typeLine = `${gj.type} (${gj.geometries.length})`;
+      break;
+    case "Feature":
+      const id = gj.id ?? gj.properties?.id ?? null;
+      typeLine = (id !== null ? `<strong>${id}:</strong> ` : "") + `Feature (${gj.geometry.type})`;
+      break;
+    // It's a geometry
+    default:
+      typeLine = `Geometry (${gj.type})`;
+  }
+
+  displayLines.push(typeLine);
+
+  // Line 3: Timestamp
+  const ts = new Date(row.ts || Date.now()).toISOString();
+  displayLines.push(`<small class="timestamp">${ts}</small>`);
+
+  // Join with line breaks
+  return displayLines.join("<br>");
+}
+
 // Create header element for a row
 function createRowHeader(row: RowData): HTMLDivElement {
   const header = document.createElement("div");
   header.className = "meta";
 
-  const ts = new Date(row.ts || Date.now()).toISOString();
-  const labelSpan = document.createElement("span");
-  labelSpan.innerHTML = `${row.label ?? "(no label)"}<br>[${ts}]`;
-  header.appendChild(labelSpan);
+  // Create content container for text elements
+  const contentSpan = document.createElement("span");
+  contentSpan.className = "meta-content";
+  contentSpan.innerHTML = createMetadataHTML(row);
+  header.appendChild(contentSpan);
 
+  // Add action buttons
   const buttonContainer = createActionButtons(row.index);
   header.appendChild(buttonContainer);
 
@@ -512,10 +635,16 @@ themeToggle.addEventListener("click", cycleTheme);
 autofitCheckbox.checked = getAutoFit();
 autofitCheckbox.addEventListener("change", () => {
   setAutoFit(autofitCheckbox.checked);
-  if (autofitCheckbox.checked) {
-    fitMapBounds();
-  }
+  if (getAutoFit()) fitMapBounds();
 });
+
+// Initialize sidebar visibility
+if (!getSidebarVisible()) {
+  sidebar.classList.add("sidebar-collapsed");
+}
+
+// Sidebar toggle
+sidebarToggleBtn.addEventListener("click", toggleSidebar);
 
 // Initialize map
 initMap();
@@ -526,6 +655,11 @@ clearBtn.addEventListener("click", () => {
   rows = [];
   nextIndex = 0;
   renderMessageLog();
+});
+
+// Zoom to fit button
+zoomToFitBtn.addEventListener("click", () => {
+  fitMapBounds();
 });
 
 // Connect to WebSocket

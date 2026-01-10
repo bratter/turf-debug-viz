@@ -126,14 +126,14 @@ globalThis.DebugViz = {
    * It ensures messages are sent before continuing execution, which is
    * essential when stepping through code in a debugger.
    */
-  send: (label: string, geojson: GeoJSON) => {
+  send: (geojson: GeoJSON, label?: string) => {
     // Lazily create connection on first use
     if (!connection) {
       connection = connect();
     }
 
     const msg: DebugMessage = {
-      label: String(label ?? "debug"),
+      label,
       ts: Date.now(),
       geojson,
     };

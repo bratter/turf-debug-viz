@@ -14,10 +14,10 @@ const point: Point = {
   type: "Point",
   coordinates: [-122.4194, 37.7749],
 };
-DebugViz.send("test-point", point);
+DebugViz.send(point, "test-point");
 
 // Test with a Polygon near the test-point
-DebugViz.send("test-polygon", {
+DebugViz.send({
   type: "Polygon",
   coordinates: [
     [
@@ -28,10 +28,10 @@ DebugViz.send("test-polygon", {
       [-122.42, 37.77],
     ],
   ],
-});
+}, "test-polygon");
 
 // Test with a Feature
-DebugViz.send("test-feature", {
+DebugViz.send({
   type: "Feature",
   geometry: {
     type: "LineString",
@@ -44,10 +44,10 @@ DebugViz.send("test-feature", {
     name: "Test Line",
     color: "blue",
   },
-});
+}, "test-feature");
 
 // Test with a FeatureCollection
-DebugViz.send("test-collection", {
+DebugViz.send({
   type: "FeatureCollection",
   features: [
     {
@@ -67,7 +67,7 @@ DebugViz.send("test-collection", {
       properties: { label: "Point 1,1" },
     },
   ],
-});
+}, "test-collection");
 
 // Test access to turf
 console.log(turf.bbox(point));
