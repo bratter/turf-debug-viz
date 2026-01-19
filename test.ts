@@ -33,6 +33,7 @@ DebugViz.send({
 // Test with a Feature
 DebugViz.send({
   type: "Feature",
+  id: "An id",
   geometry: {
     type: "LineString",
     coordinates: [

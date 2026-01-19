@@ -6,8 +6,10 @@
 import type { GeoJSON, Feature, FeatureCollection } from "geojson";
 import type { Map as MapboxMap } from "mapbox-gl";
 import { config } from "./config.js";
+import { uiThemeSwitcher, getTheme, setTheme, Theme } from "./node_modules/theme-switcher/dist/theme-switcher.js";
 
 // Turf is loaded locally via a script tag
+// TODO: For development, might be better to just use from node
 declare const turf: typeof import("@turf/turf");
 // MapBox GL is loaded via CDN script tag
 declare const mapboxgl: typeof import("mapbox-gl");
@@ -29,7 +31,6 @@ interface RowData extends DebugMessage {
 // Constants
 // ========================================
 
-const STORAGE_KEY_THEME = "turf-debug-theme";
 const STORAGE_KEY_AUTOFIT = "turf-debug-autofit";
 const STORAGE_KEY_SIDEBAR = "turf-debug-sidebar";
 const MAP_FIT_OPTIONS = {
@@ -68,12 +69,11 @@ const COLOR_PALETTE_DARK = [
 
 const statusIndicator = document.getElementById("status") as HTMLDivElement;
 const sidebarToggleBtn = document.getElementById("sidebar-toggle") as HTMLButtonElement;
-const mapContainerParent = document.getElementById("content") as HTMLDivElement;
+const mapContainerParent = document.getElementById("map-view") as HTMLDivElement;
 const sidebar = document.getElementById("sidebar") as HTMLDivElement;
 const messageLog = document.getElementById("log") as HTMLDivElement;
 const clearBtn = document.getElementById("clear") as HTMLButtonElement;
 const zoomToFitBtn = document.getElementById("zoom-to-fit") as HTMLButtonElement;
-const themeToggle = document.getElementById("theme-toggle") as HTMLButtonElement;
 const autofitCheckbox = document.getElementById("autofit-checkbox") as HTMLInputElement;
 const showVerticesCheckbox = document.getElementById("show-vertices-checkbox") as HTMLInputElement;
 
@@ -92,25 +92,12 @@ let mapPopup: mapboxgl.Popup | undefined;
 // Theme Management
 // ========================================
 
-type Theme = "system" | "light" | "dark";
+// Set up the theme switcher
+const themeSwitcherParent = document.getElementById("theme-switcher") as HTMLLIElement;
+themeSwitcherParent.append(uiThemeSwitcher());
 
-function getThemeName(): Theme {
-  return localStorage.getItem(STORAGE_KEY_THEME) as Theme | null ?? "system";
-}
-
-function setTheme(theme: Theme): void {
-  // Get the current map style before we override anything
-  const currentMapStyle = getMapStyle(getThemeName());
-
-  localStorage.setItem(STORAGE_KEY_THEME, theme);
-
-  if (theme === "system") {
-    document.documentElement.removeAttribute("data-theme");
-    themeToggle.textContent = "System";
-  } else {
-    document.documentElement.setAttribute("data-theme", theme);
-    themeToggle.textContent = theme === "light" ? "Light" : "Dark";
-  }
+window.addEventListener("themechange", (e) => {
+  const theme = (e as CustomEvent).detail.theme;
 
   // Update map style if the map exists, which it may not becuase the theme is
   // set before the map is rendered
@@ -118,8 +105,9 @@ function setTheme(theme: Theme): void {
     const newStyle = getMapStyle(theme);
 
     // If style URL has changed, set it on the map, this will re-add all the
-    // shapes. If it hasn't changed, just in case ensure the colors are updates
+    // shapes. If it hasn't changed, just in case ensure the colors are updated
     if (newStyle !== currentMapStyle) {
+      currentMapStyle = newStyle;
       map!.setStyle(newStyle);
     } else {
       rows.forEach((row) => {
@@ -134,7 +122,7 @@ function setTheme(theme: Theme): void {
 
   // Update row color swatches
   renderMessageLog();
-}
+});
 
 function getAutoFit(): boolean {
   const stored = localStorage.getItem(STORAGE_KEY_AUTOFIT);
@@ -174,12 +162,6 @@ function getMapStyle(theme: Theme): string {
   }
 }
 
-function cycleTheme(): void {
-  const current = getThemeName();
-  const next: Theme = current === "system" ? "light" : current === "light" ? "dark" : "system";
-  setTheme(next);
-}
-
 // ========================================
 // Map Initialization
 // ========================================
@@ -194,9 +176,10 @@ function initMap(): void {
   mapContainerParent.appendChild(mapContainer);
 
   // Create map instance
-  const initialStyle = getMapStyle(getThemeName());
+  const initialStyle = getMapStyle(getTheme());
   currentMapStyle = initialStyle;
 
+  // TODO: Can this just go straight into the map-view section
   map = new mapboxgl.Map({
     container: "map-container",
     style: initialStyle,
@@ -275,7 +258,7 @@ function getFeatureColor(index: number, theme: Theme): string {
 function addToMap(row: RowData): void {
   try {
     const sourceId = `source-${row.index}`;
-    const color = getFeatureColor(row.index, getThemeName());
+    const color = getFeatureColor(row.index, getTheme());
     // HTML for the tooltip
     const metadataHTML = createMetadataHTML(row);
 
@@ -617,7 +600,7 @@ function createRowElement(row: RowData): HTMLDivElement {
   rowElement.className = classNames.join(" ");
 
   // Add color swatch using border-left
-  const color = getFeatureColor(row.index, getThemeName());
+  const color = getFeatureColor(row.index, getTheme());
   // Reduce opacity for hidden rows
   const borderColor = row.isHidden ? color + "40" : color; // 40 = 25% opacity in hex
   rowElement.style.borderLeftColor = borderColor;
@@ -648,8 +631,8 @@ function renderMessageLog(): void {
 // ========================================
 
 // Initialize theme and toggle
-setTheme(getThemeName());
-themeToggle.addEventListener("click", cycleTheme);
+
+setTheme(getTheme());
 
 // Initialize auto-fit checkbox
 autofitCheckbox.checked = getAutoFit();

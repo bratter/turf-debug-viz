@@ -26,6 +26,8 @@
   "dependencies": {
     "@turf/turf": "^7.3.1",
     "deasync": "^0.1.31",
+    "theme-switcher": "link:../web-toolkit/components/theme-switcher",
+    "pico": "link:../web-toolkit/pico",
     "ws": "^8.19.0"
   }
 }

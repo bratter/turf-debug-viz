@@ -1,85 +1,13 @@
 /* ========================================
-   TokyoNight Color Palettes
-   ======================================== */
-
-/* TokyoNight Day (light theme) */
-:root,
-[data-theme="light"] {
-  --tn-bg: #e1e2e7;
-  --tn-bg-dark: #c4c8da;
-  --tn-bg-highlight: #b6bfe2;
-  --tn-fg: #3760bf;
-  --tn-fg-dark: #0f4b6e;
-  --tn-comment: #848cb5;
-  --tn-red: #f52a65;
-  --tn-orange: #b15c00;
-  --tn-yellow: #8c6c3e;
-  --tn-green: #587539;
-  --tn-cyan: #007197;
-  --tn-blue: #2e7de9;
-  --tn-purple: #9854f1;
-  --tn-magenta: #7847bd;
-}
-
-/* TokyoNight Moon (dark theme) */
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme]) {
-    --tn-bg: #222436;
-    --tn-bg-dark: #1e2030;
-    --tn-bg-highlight: #2d3f76;
-    --tn-fg: #c8d3f5;
-    --tn-fg-dark: #828bb8;
-    --tn-comment: #636da6;
-    --tn-red: #ff757f;
-    --tn-orange: #ff966c;
-    --tn-yellow: #ffc777;
-    --tn-green: #c3e88d;
-    --tn-cyan: #86e1fc;
-    --tn-blue: #82aaff;
-    --tn-purple: #fca7ea;
-    --tn-magenta: #c099ff;
-  }
-}
-
-[data-theme="dark"] {
-  --tn-bg: #222436;
-  --tn-bg-dark: #1e2030;
-  --tn-bg-highlight: #2d3f76;
-  --tn-fg: #c8d3f5;
-  --tn-fg-dark: #828bb8;
-  --tn-comment: #636da6;
-  --tn-red: #ff757f;
-  --tn-orange: #ff966c;
-  --tn-yellow: #ffc777;
-  --tn-green: #c3e88d;
-  --tn-cyan: #86e1fc;
-  --tn-blue: #82aaff;
-  --tn-purple: #fca7ea;
-  --tn-magenta: #c099ff;
-}
-
-/* ========================================
    Semantic Tokens
    ======================================== */
 
 :root {
-  /* Colors */
-  --color-bg: var(--tn-bg);
-  --color-fg: var(--tn-fg);
-  --color-fg-muted: var(--tn-comment);
-  --color-border: var(--tn-bg-highlight);
-  --color-btn-bg: color-mix(in srgb, var(--tn-comment) 70%, var(--tn-bg));
-  --color-btn-bg-hover: var(--tn-bg-highlight);
-
   /* Spacing */
   --space-xs: 0.25rem;
   --space-sm: 0.5rem;
   --space-md: 0.75rem;
   --space-lg: 1rem;
-
-  /* Border */
-  --border-width: 0.0625rem;
-  --border-radius: 0.375rem;
 
   /* Sizing */
   --sidebar-min-width: 18.75rem;
@@ -89,55 +17,40 @@
    Layout & Base Styles
    ======================================== */
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
 body {
-  font-family: ui-monospace, Consolas, monospace;
-  background: var(--color-bg);
-  color: var(--color-fg);
   height: 100vh;
   overflow: hidden;
-}
-
-h1 {
-  font-size: 1rem;
-  font-weight: 600;
-}
-
-#app {
   display: flex;
   flex-direction: column;
-  height: 100%;
 }
 
-header {
-  padding: var(--space-md) var(--space-lg);
-  border-bottom: var(--border-width) solid var(--color-border);
-  display: flex;
-  align-items: center;
-  gap: var(--space-md);
+header.container-fluid {
+  padding-top: 0;
+  padding-bottom: 0;
+  border-bottom: var(--border-width) solid var(--primary-border);
 }
 
-#sidebar-toggle {
-  padding: var(--space-xs) var(--space-sm);
-  font-size: 1.25rem;
-  line-height: 1;
+header.container-fluid h1 {
+  margin: 0;
+  font-size: 1.5rem;
 }
 
 #main-container {
   display: flex;
   flex: 1;
   overflow: hidden;
+  padding: 0;
 }
 
-#content {
+section#map-view {
   flex: 1;
   position: relative;
   overflow: hidden;
+  margin-bottom: 0;
+}
+
+section#geojson-view {
+  flex: 1;
 }
 
 /* MapBox GL container must fill parent */
@@ -153,7 +66,7 @@ header {
 #sidebar {
   width: 25%;
   min-width: var(--sidebar-min-width);
-  border-left: var(--border-width) solid var(--color-border);
+  border-left: var(--border-width) solid var(--primary-border);
   display: flex;
   flex-direction: column;
 }
@@ -164,7 +77,7 @@ header {
 
 #sidebar-header {
   padding: var(--space-md);
-  border-bottom: var(--border-width) solid var(--color-border);
+  border-bottom: var(--border-width) solid var(--primary-border);
   display: grid;
   grid-template-columns: 1fr auto;
   gap: var(--space-sm);
@@ -179,7 +92,6 @@ header {
   font-size: 0.875rem;
   cursor: pointer;
   user-select: none;
-  color: var(--color-fg);
 }
 
 #autofit-checkbox,
@@ -192,20 +104,18 @@ header {
   padding: var(--space-xs) var(--space-sm);
   border-radius: var(--border-radius);
   font-size: 0.875rem;
-  color: var(--color-fg-muted);
+  color: var(--muted-color);
   margin-left: auto;
 }
 
 #log {
   flex: 1;
   overflow: auto;
-  padding: var(--space-sm);
-  padding-left: 0;
 }
 
 .row {
-  border-bottom: var(--border-width) solid var(--color-border);
-  border-left: var(--space-xs) solid var(--color-bg);
+  border-bottom: var(--border-width) solid var(--primary-border);
+  border-left: var(--space-xs) solid var(--background-color);
   padding: var(--space-sm);
   padding-right: 0;
 }
@@ -220,10 +130,10 @@ header {
 
 .meta {
   position: relative;
-  color: var(--color-fg-muted);
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
+  padding-right: var(--space-sm);
   font-size: 0.875rem;
   cursor: pointer;
   user-select: none;
@@ -231,7 +141,7 @@ header {
 }
 
 .meta:hover {
-  color: var(--color-fg);
+  color: var(--color);
 }
 
 .meta-content {
@@ -241,22 +151,21 @@ header {
 
 .timestamp {
   font-size: 0.75rem;
-  color: var(--color-fg-muted);
+  color: var(--muted-color);
 }
 
 .meta:hover .timestamp {
-  color: var(--color-fg-muted);
+  color: var(--muted-color);
 }
 
 .meta strong {
   font-weight: 700;
-  color: var(--color-fg);
 }
 
 .row-buttons {
   position: absolute;
   top: 0;
-  right: 0;
+  right: var(--space-sm);
   display: flex;
   gap: var(--space-xs);
   opacity: 0;
@@ -280,40 +189,13 @@ pre {
 }
 
 /* ========================================
-   Buttons & Controls
-   ======================================== */
-
-button {
-  font: inherit;
-  background: var(--color-btn-bg);
-  color: var(--color-fg);
-  border: var(--border-width) solid var(--color-border);
-  border-radius: var(--border-radius);
-  padding: var(--space-xs) var(--space-md);
-  cursor: pointer;
-  font-size: 0.875rem;
-}
-
-button:hover {
-  background: var(--color-btn-bg-hover);
-}
-
-
-.visibility-btn,
-.zoom-btn,
-.delete-btn {
-  padding: var(--space-xs);
-  line-height: 1.2;
-}
-
-/* ========================================
    Map Popup Styling
    ======================================== */
 
 .mapboxgl-popup-content {
-  background: var(--color-bg);
-  color: var(--color-fg);
-  border: var(--border-width) solid var(--color-border);
+  background: var(--background-color);
+  color: var(--color);
+  border: var(--border-width) solid var(--secondary-border);
   border-radius: var(--border-radius);
   padding: var(--space-sm) var(--space-md);
   font-family: inherit;
@@ -324,35 +206,35 @@ button:hover {
 .mapboxgl-popup-anchor-top .mapboxgl-popup-tip,
 .mapboxgl-popup-anchor-top-left .mapboxgl-popup-tip,
 .mapboxgl-popup-anchor-top-right .mapboxgl-popup-tip {
-  border-bottom-color: var(--color-border);
+  border-bottom-color: var(--secondary-border);
 }
 
 .mapboxgl-popup-anchor-bottom .mapboxgl-popup-tip,
 .mapboxgl-popup-anchor-bottom-left .mapboxgl-popup-tip,
 .mapboxgl-popup-anchor-bottom-right .mapboxgl-popup-tip {
-  border-top-color: var(--color-border);
+  border-top-color: var(--secondary-border);
 }
 
 .mapboxgl-popup-anchor-left .mapboxgl-popup-tip {
-  border-right-color: var(--color-border);
+  border-right-color: var(--secondary-border);
 }
 
 .mapboxgl-popup-anchor-right .mapboxgl-popup-tip {
-  border-left-color: var(--color-border);
+  border-left-color: var(--secondary-border);
 }
 
 .popup-label {
   font-weight: 600;
   margin-bottom: var(--space-xs);
-  color: var(--color-fg);
+  color: var(--color);
 }
 
 .popup-type {
   font-size: 0.8125rem;
-  color: var(--color-fg-muted);
+  color: var(--muted-color);
 }
 
 .popup-type strong {
   font-weight: 700;
-  color: var(--color-fg);
+  color: var(--color);
 }
