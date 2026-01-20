@@ -8,7 +8,7 @@
       "DOM.Iterable"
     ],
     "outDir": "./public/assets",
-    "rootDir": ".",
+    "rootDir": "./src",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
@@ -17,6 +17,6 @@
     "sourceMap": true
   },
   "include": [
-    "client.ts"
+    "src/client.ts"
   ]
 }

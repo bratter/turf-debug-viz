@@ -1,8 +1,7 @@
 node_modules
 
 # Build artifacts
-public/assets/*.js
-public/assets/*.js.map
+public/assets
 
 # Configuration
 config.ts

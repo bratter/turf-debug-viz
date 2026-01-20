@@ -6,7 +6,7 @@
 import type { GeoJSON, Feature, FeatureCollection } from "geojson";
 import type { Map as MapboxMap } from "mapbox-gl";
 import { config } from "./config.js";
-import { uiThemeSwitcher, getTheme, setTheme, Theme } from "./node_modules/theme-switcher/dist/theme-switcher.js";
+import { uiThemeSwitcher, getTheme, setTheme, Theme } from "../node_modules/theme-switcher/dist/theme-switcher.js";
 
 // Turf is loaded locally via a script tag
 // TODO: For development, might be better to just use from node

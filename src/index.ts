@@ -31,7 +31,7 @@ const logger = {
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const INDEX_FILE = path.join(__dirname, "public", "index.html");
+const INDEX_FILE = path.join(__dirname, "../", "public", "index.html");
 
 const MIME_TYPES: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -68,7 +68,7 @@ const server = http.createServer((req, res) => {
 
   // Serve static assets from public/assets directory
   if (url.startsWith("/assets/")) {
-    const filePath = path.join(__dirname, "public", url);
+    const filePath = path.join(__dirname, "../", "public", url);
     return serveFile(filePath, res);
   }
 
