@@ -4,7 +4,8 @@
  */
 
 import type { GeoJSON } from "geojson";
-import { uiThemeSwitcher, isDark, getTheme, setTheme } from "../node_modules/theme-switcher/dist/theme-switcher.js";
+import { uiThemeSwitcher, getTheme, setTheme } from "../node_modules/theme-switcher/dist/theme-switcher.js";
+import { getFeatureColor, createMetadataHTML } from "./client/helpers.ts";
 import { MapView } from "./client/map.ts";
 
 interface DebugMessage {
@@ -27,29 +28,6 @@ interface RowData extends DebugMessage {
 const STORAGE_KEY_AUTOFIT = "turf-debug-autofit";
 const STORAGE_KEY_SIDEBAR = "turf-debug-sidebar";
 const WEBSOCKET_RECONNECT_DELAY = 300;
-
-// TokyoNight color palettes for feature visualization
-const COLOR_PALETTE_LIGHT = [
-  "#2e7de9", // blue
-  "#587539", // green
-  "#9854f1", // purple
-  "#007197", // cyan
-  "#b15c00", // orange
-  "#7847bd", // magenta
-  "#8c6c3e", // yellow
-  "#f52a65", // red
-];
-
-const COLOR_PALETTE_DARK = [
-  "#82aaff", // blue
-  "#c3e88d", // green
-  "#fca7ea", // purple
-  "#86e1fc", // cyan
-  "#ff966c", // orange
-  "#c099ff", // magenta
-  "#ffc777", // yellow
-  "#ff757f", // red
-];
 
 // ========================================
 // DOM Element References
@@ -112,17 +90,6 @@ function toggleSidebar(): void {
   sidebar.classList.toggle("sidebar-collapsed", !newVisibility);
   map?.resize();
 }
-
-// ========================================
-// Map Feature Management
-// ========================================
-
-// Get theme-appropriate color for map features using indexed palette
-function getFeatureColor(index: number): string {
-  const palette = isDark() ? COLOR_PALETTE_DARK : COLOR_PALETTE_LIGHT;
-  return palette[index % palette.length];
-}
-
 
 // ========================================
 // WebSocket Connection
@@ -228,45 +195,6 @@ function createActionButtons(index: number): HTMLDivElement {
   return buttonContainer;
 }
 
-function createMetadataHTML(row: RowData): string {
-  // Build display lines array
-  const displayLines: string[] = [];
-
-  // Line 1: Label (only if present)
-  if (row.label) {
-    displayLines.push(row.label);
-  }
-
-  // Line 2: Type information with optional ID
-  const gj = row.geojson;
-  let typeLine: string;
-
-  switch (gj.type) {
-    case "FeatureCollection":
-      typeLine = `${gj.type} (${gj.features.length})`;
-      break;
-    case "GeometryCollection":
-      typeLine = `${gj.type} (${gj.geometries.length})`;
-      break;
-    case "Feature":
-      const id = gj.id ?? gj.properties?.id ?? null;
-      typeLine = (id !== null ? `<strong>${id}:</strong> ` : "") + `Feature (${gj.geometry.type})`;
-      break;
-    // It's a geometry
-    default:
-      typeLine = `Geometry (${gj.type})`;
-  }
-
-  displayLines.push(typeLine);
-
-  // Line 3: Timestamp
-  const ts = new Date(row.ts || Date.now()).toISOString();
-  displayLines.push(`<small class="timestamp">${ts}</small>`);
-
-  // Join with line breaks
-  return displayLines.join("<br>");
-}
-
 // Create header element for a row
 function createRowHeader(row: RowData): HTMLDivElement {
   const header = document.createElement("div");
@@ -360,7 +288,8 @@ if (!getSidebarVisible()) {
 sidebarToggleBtn.addEventListener("click", toggleSidebar);
 
 // Initialize map with accessor function for render data
-map = new MapView(() => rows);
+
+map = new MapView("map-view", () => rows);
 
 // Clear button
 clearBtn.addEventListener("click", () => {
@@ -378,5 +307,4 @@ zoomToFitBtn.addEventListener("click", () => {
 // Connect to WebSocket
 connect();
 
-// TODO: Helper functions can go into a separate module
-export { RowData, createMetadataHTML, getFeatureColor };
+export { RowData };

@@ -3,9 +3,10 @@
  */
 
 import type { GeoJSON, Feature, FeatureCollection } from "geojson";
-import { isDark, getTheme } from "../../node_modules/theme-switcher/dist/theme-switcher.js";
+import { isDark } from "../../node_modules/theme-switcher/dist/theme-switcher.js";
 import { config } from "../config.js";
-import { RowData, createMetadataHTML, getFeatureColor } from "../client.ts";
+import { RowData } from "../client.ts";
+import { createMetadataHTML, getFeatureColor } from "./helpers.ts";
 
 // MapBox GL is loaded via CDN script tag
 declare const mapboxgl: typeof import("mapbox-gl");
@@ -21,11 +22,6 @@ const MAP_FIT_OPTIONS = {
 } as const;
 const CIRCLE_FILTER_SHOW_VERTICIES = ["in", ["geometry-type"], ["literal", ["Point", "MultiPoint", "LineString", "MultiLineString", "Polygon", "MultiPolygon"]]];
 const CIRCLE_FILTER_HIDE_VERTICIES = ["in", ["geometry-type"], ["literal", ["Point", "MultiPoint"]]];
-
-// TODO: These could be handled on the class
-const mapContainerParent = document.getElementById("map-view") as HTMLDivElement;
-
-let currentMapStyle: string | undefined;
 
 // TODO: Rename
 function getMapStyleUrl(): string {
@@ -46,36 +42,30 @@ function normalizeToFeatures(geojson: GeoJSON): Feature | FeatureCollection {
   }
 }
 
-// ========================================
-// Map Initialization
-// ========================================
-
+/**
+ * Manage a MapboxWebGL map.
+ */
 class MapView {
   getRenderData: () => RowData[];
 
   private map: mapboxgl.Map;
   private popup: mapboxgl.Popup;
+  private currentStyleUrl: string;
   private _showVertices: boolean;
 
-  constructor(getRenderData: () => RowData[], showVerticies = false) {
+  constructor(container: HTMLElement | string, getRenderData: () => RowData[], showVerticies = false) {
     this.getRenderData = getRenderData;
     this._showVertices = showVerticies;
 
     // Set MapBox access token
     mapboxgl.accessToken = config.mapboxToken;
 
-    // Create map container div
-    const mapContainer = document.createElement("div");
-    mapContainer.id = "map-container";
-    mapContainerParent.appendChild(mapContainer);
-
     // Create map instance
     const initialStyle = getMapStyleUrl();
-    currentMapStyle = initialStyle;
+    this.currentStyleUrl = initialStyle;
 
-    // TODO: Can this just go straight into the map-view section
     this.map = new mapboxgl.Map({
-      container: "map-container",
+      container: container,
       style: initialStyle,
       center: [0, 0],
       zoom: 1,
@@ -92,19 +82,18 @@ class MapView {
     });
 
     // Set up event listener hooked into theme change
-    window.addEventListener("themechange", (e) => {
+    window.addEventListener("themechange", () => {
       const rows = this.getRenderData();
-      const theme = (e as CustomEvent).detail.theme;
       const newStyle = getMapStyleUrl();
 
       // If style URL has changed, set it on the map, this will re-add all the
       // shapes. If it hasn't changed, just in case ensure the colors are updated
-      if (newStyle !== currentMapStyle) {
-        currentMapStyle = newStyle;
+      if (newStyle !== this.currentStyleUrl) {
+        this.currentStyleUrl = newStyle;
         this.map.setStyle(newStyle);
       } else {
         rows.forEach((row) => {
-          const color = getFeatureColor(row.index, theme);
+          const color = getFeatureColor(row.index);
 
           this.map.setPaintProperty(`layer-${row.index}-fill`, "fill-color", color);
           this.map.setPaintProperty(`layer-${row.index}-line`, "line-color", color);
@@ -134,7 +123,7 @@ class MapView {
   addToMap(row: RowData) {
     try {
       const sourceId = `source-${row.index}`;
-      const color = getFeatureColor(row.index, getTheme());
+      const color = getFeatureColor(row.index);
       // HTML for the tooltip
       const metadataHTML = createMetadataHTML(row);
 
