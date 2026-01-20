@@ -3,16 +3,9 @@
  * Connects to WebSocket relay and displays incoming debug messages
  */
 
-import type { GeoJSON, Feature, FeatureCollection } from "geojson";
-import type { Map as MapboxMap } from "mapbox-gl";
-import { config } from "./config.js";
-import { uiThemeSwitcher, getTheme, setTheme, Theme } from "../node_modules/theme-switcher/dist/theme-switcher.js";
-
-// Turf is loaded locally via a script tag
-// TODO: For development, might be better to just use from node
-declare const turf: typeof import("@turf/turf");
-// MapBox GL is loaded via CDN script tag
-declare const mapboxgl: typeof import("mapbox-gl");
+import type { GeoJSON } from "geojson";
+import { uiThemeSwitcher, isDark, getTheme, setTheme } from "../node_modules/theme-switcher/dist/theme-switcher.js";
+import { MapView } from "./client/map.ts";
 
 interface DebugMessage {
   label?: string | null;
@@ -33,11 +26,6 @@ interface RowData extends DebugMessage {
 
 const STORAGE_KEY_AUTOFIT = "turf-debug-autofit";
 const STORAGE_KEY_SIDEBAR = "turf-debug-sidebar";
-const MAP_FIT_OPTIONS = {
-  padding: 50,
-  maxZoom: 15,
-  duration: 500,
-} as const;
 const WEBSOCKET_RECONNECT_DELAY = 300;
 
 // TokyoNight color palettes for feature visualization
@@ -69,7 +57,6 @@ const COLOR_PALETTE_DARK = [
 
 const statusIndicator = document.getElementById("status") as HTMLDivElement;
 const sidebarToggleBtn = document.getElementById("sidebar-toggle") as HTMLButtonElement;
-const mapContainerParent = document.getElementById("map-view") as HTMLDivElement;
 const sidebar = document.getElementById("sidebar") as HTMLDivElement;
 const messageLog = document.getElementById("log") as HTMLDivElement;
 const clearBtn = document.getElementById("clear") as HTMLButtonElement;
@@ -82,11 +69,10 @@ const showVerticesCheckbox = document.getElementById("show-vertices-checkbox") a
 // ========================================
 
 let webSocket: WebSocket | undefined;
+// FIX: Row data structure may need to be improved or abstracted
 let rows: RowData[] = [];
 let nextIndex = 0; // Global counter for stable row indices
-let map: MapboxMap | undefined;
-let currentMapStyle: string | undefined;
-let mapPopup: mapboxgl.Popup | undefined;
+let map: MapView | undefined;
 
 // ========================================
 // Theme Management
@@ -96,31 +82,8 @@ let mapPopup: mapboxgl.Popup | undefined;
 const themeSwitcherParent = document.getElementById("theme-switcher") as HTMLLIElement;
 themeSwitcherParent.append(uiThemeSwitcher());
 
-window.addEventListener("themechange", (e) => {
-  const theme = (e as CustomEvent).detail.theme;
-
-  // Update map style if the map exists, which it may not becuase the theme is
-  // set before the map is rendered
-  if (map) {
-    const newStyle = getMapStyle(theme);
-
-    // If style URL has changed, set it on the map, this will re-add all the
-    // shapes. If it hasn't changed, just in case ensure the colors are updated
-    if (newStyle !== currentMapStyle) {
-      currentMapStyle = newStyle;
-      map!.setStyle(newStyle);
-    } else {
-      rows.forEach((row) => {
-        const color = getFeatureColor(row.index, theme);
-
-        map!.setPaintProperty(`layer-${row.index}-fill`, "fill-color", color);
-        map!.setPaintProperty(`layer-${row.index}-line`, "line-color", color);
-        map!.setPaintProperty(`layer-${row.index}-circle`, "circle-color", color);
-      });
-    }
-  }
-
-  // Update row color swatches
+// Update row color swatches when the theme changes
+window.addEventListener("themechange", () => {
   renderMessageLog();
 });
 
@@ -150,277 +113,16 @@ function toggleSidebar(): void {
   map?.resize();
 }
 
-function prefersDark(): boolean {
-  return window.matchMedia("(prefers-color-scheme: dark)").matches;
-}
-
-function getMapStyle(theme: Theme): string {
-  if ((theme === "system" && prefersDark()) || theme === "dark") {
-    return "mapbox://styles/mapbox/dark-v11";
-  } else {
-    return "mapbox://styles/mapbox/light-v11";
-  }
-}
-
-// ========================================
-// Map Initialization
-// ========================================
-
-function initMap(): void {
-  // Set MapBox access token
-  mapboxgl.accessToken = config.mapboxToken;
-
-  // Create map container div
-  const mapContainer = document.createElement("div");
-  mapContainer.id = "map-container";
-  mapContainerParent.appendChild(mapContainer);
-
-  // Create map instance
-  const initialStyle = getMapStyle(getTheme());
-  currentMapStyle = initialStyle;
-
-  // TODO: Can this just go straight into the map-view section
-  map = new mapboxgl.Map({
-    container: "map-container",
-    style: initialStyle,
-    center: [0, 0],
-    zoom: 1,
-  });
-
-  // Add navigation controls
-  map.addControl(new mapboxgl.NavigationControl());
-
-  // Initialize reusable popup
-  mapPopup = new mapboxgl.Popup({
-    closeButton: false,
-    closeOnClick: false,
-    maxWidth: "300px",
-  });
-
-  // When style changes (e.g., theme switch), re-add all features
-  // because mapbox deletes them
-  map.on("style.load", () => {
-    rows.forEach(addToMap);
-  });
-}
-
 // ========================================
 // Map Feature Management
 // ========================================
 
-// GeoJSON normalization
-function normalizeToFeatures(geojson: GeoJSON): Feature | FeatureCollection {
-  switch (geojson.type) {
-    case "Feature": return geojson;
-    case "FeatureCollection": return geojson;
-    // It's a geometry
-    default: return turf.feature(geojson);
-  }
-}
-
-// Fit map bounds to show all features
-function fitMapBounds(ignoreHidden = true): void {
-  if (!map || !rows.length) return;
-
-  const bounds = [Infinity, Infinity, -Infinity, -Infinity] as any;
-
-  for (const row of rows) {
-    if (ignoreHidden && row.isHidden) continue;
-
-    const cur = turf.bbox(row.geojson);
-    bounds[0] = cur[0] < bounds[0] ? cur[0] : bounds[0];
-    bounds[1] = cur[1] < bounds[1] ? cur[1] : bounds[1];
-    bounds[2] = cur[2] > bounds[2] ? cur[2] : bounds[2];
-    bounds[3] = cur[3] > bounds[3] ? cur[3] : bounds[3];
-  }
-
-  map.fitBounds(bounds, MAP_FIT_OPTIONS);
-}
-
-// Zoom map to a single feature
-function zoomToFeature(index: number): void {
-  const row = rows.find((r) => r.index === index);
-  if (!map || !row) return;
-
-  const bounds = turf.bbox(row.geojson) as mapboxgl.LngLatBoundsLike;
-
-  map.fitBounds(bounds, MAP_FIT_OPTIONS);
-}
-
 // Get theme-appropriate color for map features using indexed palette
-function getFeatureColor(index: number, theme: Theme): string {
-  const isDark = theme === "dark" || (theme === "system" && prefersDark());
-  const palette = isDark ? COLOR_PALETTE_DARK : COLOR_PALETTE_LIGHT;
+function getFeatureColor(index: number): string {
+  const palette = isDark() ? COLOR_PALETTE_DARK : COLOR_PALETTE_LIGHT;
   return palette[index % palette.length];
 }
 
-// Add GeoJSON to map
-function addToMap(row: RowData): void {
-  try {
-    const sourceId = `source-${row.index}`;
-    const color = getFeatureColor(row.index, getTheme());
-    // HTML for the tooltip
-    const metadataHTML = createMetadataHTML(row);
-
-    // Add source
-    map!.addSource(sourceId, {
-      type: "geojson",
-      data: normalizeToFeatures(row.geojson),
-    });
-
-    // Add all layer types for each shape
-    // This is wasteful (as is having multiple sources), but easier to manage for MVP
-    const fillLayerId = `layer-${row.index}-fill`;
-    map!.addLayer({
-      id: fillLayerId,
-      type: "fill",
-      source: sourceId,
-      paint: {
-        "fill-color": color,
-        "fill-opacity": 0.3,
-      },
-      filter: ["in", ["geometry-type"], ["literal", ["Polygon", "MultiPolygon"]]],
-    });
-    addPopupHandler(fillLayerId, metadataHTML);
-
-    const lineLayerId = `layer-${row.index}-line`;
-    map!.addLayer({
-      id: lineLayerId,
-      type: "line",
-      source: sourceId,
-      paint: {
-        "line-color": color,
-        "line-width": 2,
-      },
-      filter: ["in", ["geometry-type"], ["literal", ["LineString", "MultiLineString", "Polygon", "MultiPolygon"]]],
-    });
-    map!.addLayer({
-      id: `${lineLayerId}-hitzone`,
-      type: "line",
-      source: sourceId,
-      paint: {
-        "line-color": "rgba(0, 0, 0, 0)",
-        "line-width": 20,
-      },
-      filter: ["in", ["geometry-type"], ["literal", ["LineString", "MultiLineString"]]],
-    });
-    addPopupHandler(`${lineLayerId}-hitzone`, metadataHTML);
-
-    const pointLayerId = `layer-${row.index}-circle`;
-    map!.addLayer({
-      id: pointLayerId,
-      type: "circle",
-      source: sourceId,
-      paint: {
-        "circle-color": color,
-        "circle-radius": 5,
-      },
-      filter: getCircleFilter(),
-    });
-    map!.addLayer({
-      id: `${pointLayerId}-hitzone`,
-      type: "circle",
-      source: sourceId,
-      paint: {
-        "circle-color": "rgba(0, 0, 0, 0)",
-        "circle-radius": 10,
-      },
-      filter: ["in", ["geometry-type"], ["literal", ["Point", "MultiPoint"]]],
-    });
-    addPopupHandler(`${pointLayerId}-hitzone`, metadataHTML);
-
-  } catch (err) {
-    console.error(`Failed to add GeoJSON to map for row ${row.index}:`, err);
-  }
-}
-
-// Add a popup handler for the layer with the passed id
-function addPopupHandler(layerId: string, metadataHTML: string): void {
-  map!.on("mousemove", layerId, (e) => {
-    mapPopup!
-      .setLngLat(e.lngLat)
-      .setHTML(metadataHTML)
-      .addTo(map!);
-  });
-
-  // Mouse leave: hide popup
-  map!.on("mouseleave", layerId, () => {
-    mapPopup!.remove();
-  });
-}
-
-// Remove GeoJSON from map
-function removeFromMap(index: number): void {
-  try {
-    // Remove layers first, then source (ordering is required)
-    map!.removeLayer(`layer-${index}-fill`);
-    map!.removeLayer(`layer-${index}-line`);
-    map!.removeLayer(`layer-${index}-line-hitzone`);
-    map!.removeLayer(`layer-${index}-circle`);
-    map!.removeLayer(`layer-${index}-circle-hitzone`);
-    map!.removeSource(`source-${index}`);
-
-    // Remove popup if it's showing
-    mapPopup!.remove();
-  } catch (err) {
-    console.error(`Failed to remove GeoJSON from map for row ${index}:`, err);
-  }
-}
-
-// Toggle visibility of a feature on the map
-function toggleVisibility(index: number): void {
-  const row = rows.find((r) => r.index === index);
-  if (!map || !row) return;
-
-  try {
-    row.isHidden = !row.isHidden;
-    const visibility = row.isHidden ? "none" : "visible";
-
-    // Toggle layer visibility
-    map.setLayoutProperty(`layer-${index}-fill`, "visibility", visibility);
-    map.setLayoutProperty(`layer-${index}-line`, "visibility", visibility);
-    map.setLayoutProperty(`layer-${index}-line-hitzone`, "visibility", visibility);
-    map.setLayoutProperty(`layer-${index}-circle`, "visibility", visibility);
-    map.setLayoutProperty(`layer-${index}-circle-hitzone`, "visibility", visibility);
-
-    // Re-render to update row styling
-    renderMessageLog();
-  } catch (err) {
-    console.error(`Failed to toggle visibility for row ${index}:`, err);
-  }
-}
-
-function getCircleFilter() {
-  return showVerticesCheckbox.checked
-    ? ["in", ["geometry-type"], ["literal", ["Point", "MultiPoint", "LineString", "MultiLineString", "Polygon", "MultiPolygon"]]]
-    : ["in", ["geometry-type"], ["literal", ["Point", "MultiPoint"]]];
-}
-
-// Update all circle layer filters based on show vertices checkbox
-function updateCircleFilters(): void {
-  if (!map) return;
-
-  rows.forEach((row) => {
-    try {
-      map!.setFilter(`layer-${row.index}-circle`, getCircleFilter());
-    } catch (err) {
-      // Layer might not exist yet, ignore error
-    }
-  });
-}
-
-// Clear all GeoJSON from map
-function clearMap(): void {
-  try {
-    // Remove all sources
-    rows.forEach((row) => removeFromMap(row.index));
-
-    // Reset to world view
-    map!.flyTo({ center: [0, 0], zoom: 1, duration: MAP_FIT_OPTIONS.duration });
-  } catch (err) {
-    console.error("Failed to clear map:", err);
-  }
-}
 
 // ========================================
 // WebSocket Connection
@@ -468,9 +170,9 @@ function connect(): void {
     };
 
     rows.push(row);
-    addToMap(row);
+    map?.addToMap(row);
     renderMessageLog();
-    if (getAutoFit()) fitMapBounds();
+    if (getAutoFit()) map?.fitAll();
   });
 }
 
@@ -483,10 +185,10 @@ function deleteRow(index: number): void {
   const arrayIndex = rows.findIndex((row) => row.index === index);
   if (arrayIndex === -1) return;
 
-  removeFromMap(index);
+  map?.removeFromMap(index);
   rows.splice(arrayIndex, 1);
   renderMessageLog();
-  if (getAutoFit()) fitMapBounds();
+  if (getAutoFit()) map?.fitAll();
 }
 
 // Create action buttons (visibility, zoom, and delete) for a row
@@ -499,7 +201,9 @@ function createActionButtons(index: number): HTMLDivElement {
   visibilityBtn.textContent = "👁️";
   visibilityBtn.addEventListener("click", (e) => {
     e.stopPropagation();
-    toggleVisibility(index);
+    map?.toggleVisibility(index);
+    // Re-render to update row styling
+    renderMessageLog();
   });
   buttonContainer.appendChild(visibilityBtn);
 
@@ -508,7 +212,7 @@ function createActionButtons(index: number): HTMLDivElement {
   zoomBtn.textContent = "🔍";
   zoomBtn.addEventListener("click", (e) => {
     e.stopPropagation();
-    zoomToFeature(index);
+    map?.zoomToFeature(index);
   });
   buttonContainer.appendChild(zoomBtn);
 
@@ -600,7 +304,7 @@ function createRowElement(row: RowData): HTMLDivElement {
   rowElement.className = classNames.join(" ");
 
   // Add color swatch using border-left
-  const color = getFeatureColor(row.index, getTheme());
+  const color = getFeatureColor(row.index);
   // Reduce opacity for hidden rows
   const borderColor = row.isHidden ? color + "40" : color; // 40 = 25% opacity in hex
   rowElement.style.borderLeftColor = borderColor;
@@ -631,18 +335,21 @@ function renderMessageLog(): void {
 // ========================================
 
 // Initialize theme and toggle
-
 setTheme(getTheme());
 
 // Initialize auto-fit checkbox
 autofitCheckbox.checked = getAutoFit();
 autofitCheckbox.addEventListener("change", () => {
   setAutoFit(autofitCheckbox.checked);
-  if (getAutoFit()) fitMapBounds();
+  if (getAutoFit()) map?.fitAll();
 });
 
 // Show vertices checkbox
-showVerticesCheckbox.addEventListener("change", updateCircleFilters);
+showVerticesCheckbox.addEventListener("change", (e) => {
+  if (map) {
+    map.showVerticies = (e.currentTarget as HTMLInputElement)?.checked;
+  }
+});
 
 // Initialize sidebar visibility
 if (!getSidebarVisible()) {
@@ -652,12 +359,12 @@ if (!getSidebarVisible()) {
 // Sidebar toggle
 sidebarToggleBtn.addEventListener("click", toggleSidebar);
 
-// Initialize map
-initMap();
+// Initialize map with accessor function for render data
+map = new MapView(() => rows);
 
 // Clear button
 clearBtn.addEventListener("click", () => {
-  clearMap();
+  map?.clearMap();
   rows = [];
   nextIndex = 0;
   renderMessageLog();
@@ -665,8 +372,11 @@ clearBtn.addEventListener("click", () => {
 
 // Zoom to fit button
 zoomToFitBtn.addEventListener("click", () => {
-  fitMapBounds();
+  map?.fitAll();
 });
 
 // Connect to WebSocket
 connect();
+
+// TODO: Helper functions can go into a separate module
+export { RowData, createMetadataHTML, getFeatureColor };
