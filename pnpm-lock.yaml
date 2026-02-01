@@ -11,6 +11,9 @@ importers:
       '@turf/turf':
         specifier: ^7.3.2
         version: 7.3.2
+      d3-selection:
+        specifier: ^3.0.0
+        version: 3.0.0
       deasync:
         specifier: ^0.1.31
         version: 0.1.31
@@ -24,6 +27,9 @@ importers:
         specifier: ^8.19.0
         version: 8.19.0
     devDependencies:
+      '@types/d3-selection':
+        specifier: ^3.0.11
+        version: 3.0.11
       '@types/deasync':
         specifier: ^0.1.5
         version: 0.1.5
@@ -552,6 +558,9 @@ packages:
   '@turf/voronoi@7.3.2':
     resolution: {integrity: sha512-Gq7eeZ6/yneS3IEcXutXr69Np/kzxEloAcvWyX5FbCfuGvJiNhHUdIkkkFJD72O1mZSoIsYBab8ThpbfdoEzRg==}
 
+  '@types/d3-selection@3.0.11':
+    resolution: {integrity: sha512-bhAXu23DJWsrI45xafYpkQ4NtcKMwWnAC/vKrd2l+nxMFuvOT3XMYTIj2opv8vq8AO5Yh7Qac/nSeP/3zjTK0w==}
+
   '@types/d3-voronoi@1.1.12':
     resolution: {integrity: sha512-DauBl25PKZZ0WVJr42a6CNvI6efsdzofl9sajqZr2Gf5Gu733WkDdUGiPkUHXiUvYGzNNlFQde2wdZdfQPG+yw==}
 
@@ -597,6 +606,10 @@ packages:
 
   d3-geo@1.7.1:
     resolution: {integrity: sha512-O4AempWAr+P5qbk2bC2FuN/sDW4z+dN2wDf9QV3bxQt4M5HfOEeXLgJ/UKQW0+o1Dj8BE+L5kiDbdWUMjsmQpw==}
+
+  d3-selection@3.0.0:
+    resolution: {integrity: sha512-fmTRWbNMmsmWq6xJV8D19U/gw/bwrHfNXxrIN+HfZgnzqTHp9jOmKMhsTUjXOJnZOdZY9Q28y4yebKzqDKlxlQ==}
+    engines: {node: '>=12'}
 
   d3-voronoi@1.1.2:
     resolution: {integrity: sha512-RhGS1u2vavcO7ay7ZNAPo4xeDh/VYeGof3x5ZLJBQgYhLegxr3s5IykvWmJ94FTU6mcbtp4sloqZ54mP6R4Utw==}
@@ -1927,6 +1940,8 @@ snapshots:
       d3-voronoi: 1.1.2
       tslib: 2.8.1
 
+  '@types/d3-selection@3.0.11': {}
+
   '@types/d3-voronoi@1.1.12': {}
 
   '@types/deasync@0.1.5': {}
@@ -1973,6 +1988,8 @@ snapshots:
   d3-geo@1.7.1:
     dependencies:
       d3-array: 1.2.4
+
+  d3-selection@3.0.0: {}
 
   d3-voronoi@1.1.2: {}
 

@@ -7,6 +7,13 @@ import type { GeoJSON } from "geojson";
 import { uiThemeSwitcher, getTheme, setTheme } from "../node_modules/theme-switcher/dist/theme-switcher.js";
 import { getFeatureColor, createMetadataHTML } from "./client/helpers.ts";
 import { MapView } from "./client/map.ts";
+import { Mode, changeMode, getAutoFit } from "./client/mode-menu.ts";
+
+declare global {
+  interface Window {
+    map: MapView | undefined;
+  }
+}
 
 interface DebugMessage {
   label?: string | null;
@@ -25,7 +32,6 @@ interface RowData extends DebugMessage {
 // Constants
 // ========================================
 
-const STORAGE_KEY_AUTOFIT = "turf-debug-autofit";
 const STORAGE_KEY_SIDEBAR = "turf-debug-sidebar";
 const WEBSOCKET_RECONNECT_DELAY = 300;
 
@@ -38,9 +44,6 @@ const sidebarToggleBtn = document.getElementById("sidebar-toggle") as HTMLButton
 const sidebar = document.getElementById("sidebar") as HTMLDivElement;
 const messageLog = document.getElementById("log") as HTMLDivElement;
 const clearBtn = document.getElementById("clear") as HTMLButtonElement;
-const zoomToFitBtn = document.getElementById("zoom-to-fit") as HTMLButtonElement;
-const autofitCheckbox = document.getElementById("autofit-checkbox") as HTMLInputElement;
-const showVerticesCheckbox = document.getElementById("show-vertices-checkbox") as HTMLInputElement;
 
 // ========================================
 // State Variables
@@ -50,7 +53,6 @@ let webSocket: WebSocket | undefined;
 // FIX: Row data structure may need to be improved or abstracted
 let rows: RowData[] = [];
 let nextIndex = 0; // Global counter for stable row indices
-let map: MapView | undefined;
 
 // ========================================
 // Theme Management
@@ -64,15 +66,6 @@ themeSwitcherParent.append(uiThemeSwitcher());
 window.addEventListener("themechange", () => {
   renderMessageLog();
 });
-
-function getAutoFit(): boolean {
-  const stored = localStorage.getItem(STORAGE_KEY_AUTOFIT);
-  return stored !== "false"; // Default to true
-}
-
-function setAutoFit(enabled: boolean): void {
-  localStorage.setItem(STORAGE_KEY_AUTOFIT, enabled.toString());
-}
 
 function getSidebarVisible(): boolean {
   return localStorage.getItem(STORAGE_KEY_SIDEBAR) !== "false"; // Default true
@@ -88,8 +81,28 @@ function toggleSidebar(): void {
 
   setSidebarVisible(newVisibility);
   sidebar.classList.toggle("sidebar-collapsed", !newVisibility);
-  map?.resize();
+  window.map?.resize();
 }
+
+// ========================================
+// Key Controls
+// ========================================
+
+// TODO: Can probably move into a key handling module that also has a register function
+const keyMap = new Map<string, () => void>([
+  ["v", () => changeMode(Mode.VIEW)],
+  ["d", () => changeMode(Mode.DIFF)],
+]);
+
+window.addEventListener("keyup", (e) => {
+  const keyWithMod = `${e.ctrlKey ? 'Ctrl+' : ''}${e.key}`;
+  const handler = keyMap.get(keyWithMod);
+
+  if (handler) {
+    e.preventDefault();
+    handler();
+  }
+});
 
 // ========================================
 // WebSocket Connection
@@ -137,9 +150,9 @@ function connect(): void {
     };
 
     rows.push(row);
-    map?.addToMap(row);
+    window.map?.addToMap(row);
     renderMessageLog();
-    if (getAutoFit()) map?.fitAll();
+    if (getAutoFit()) window.map?.fitAll();
   });
 }
 
@@ -152,10 +165,10 @@ function deleteRow(index: number): void {
   const arrayIndex = rows.findIndex((row) => row.index === index);
   if (arrayIndex === -1) return;
 
-  map?.removeFromMap(index);
+  window.map?.removeFromMap(index);
   rows.splice(arrayIndex, 1);
   renderMessageLog();
-  if (getAutoFit()) map?.fitAll();
+  if (getAutoFit()) window.map?.fitAll();
 }
 
 // Create action buttons (visibility, zoom, and delete) for a row
@@ -168,7 +181,7 @@ function createActionButtons(index: number): HTMLDivElement {
   visibilityBtn.textContent = "👁️";
   visibilityBtn.addEventListener("click", (e) => {
     e.stopPropagation();
-    map?.toggleVisibility(index);
+    window.map?.toggleVisibility(index);
     // Re-render to update row styling
     renderMessageLog();
   });
@@ -179,7 +192,7 @@ function createActionButtons(index: number): HTMLDivElement {
   zoomBtn.textContent = "🔍";
   zoomBtn.addEventListener("click", (e) => {
     e.stopPropagation();
-    map?.zoomToFeature(index);
+    window.map?.zoomToFeature(index);
   });
   buttonContainer.appendChild(zoomBtn);
 
@@ -265,20 +278,6 @@ function renderMessageLog(): void {
 // Initialize theme and toggle
 setTheme(getTheme());
 
-// Initialize auto-fit checkbox
-autofitCheckbox.checked = getAutoFit();
-autofitCheckbox.addEventListener("change", () => {
-  setAutoFit(autofitCheckbox.checked);
-  if (getAutoFit()) map?.fitAll();
-});
-
-// Show vertices checkbox
-showVerticesCheckbox.addEventListener("change", (e) => {
-  if (map) {
-    map.showVerticies = (e.currentTarget as HTMLInputElement)?.checked;
-  }
-});
-
 // Initialize sidebar visibility
 if (!getSidebarVisible()) {
   sidebar.classList.add("sidebar-collapsed");
@@ -289,19 +288,15 @@ sidebarToggleBtn.addEventListener("click", toggleSidebar);
 
 // Initialize map with accessor function for render data
 
-map = new MapView("map-view", () => rows);
+// FIX: Re-enable
+window.map = new MapView("map-view", () => rows);
 
 // Clear button
 clearBtn.addEventListener("click", () => {
-  map?.clearMap();
+  window.map?.clearMap();
   rows = [];
   nextIndex = 0;
   renderMessageLog();
-});
-
-// Zoom to fit button
-zoomToFitBtn.addEventListener("click", () => {
-  map?.fitAll();
 });
 
 // Connect to WebSocket

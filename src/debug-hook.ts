@@ -12,7 +12,7 @@
  */
 
 import type { GeoJSON } from "geojson";
-import type { DebugMessage } from "./types.js";
+import type { DebugMessage } from "../types.js";
 import WebSocket from "ws";
 import deasync from "deasync";
 import * as turf from "@turf/turf";

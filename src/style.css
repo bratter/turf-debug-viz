@@ -60,6 +60,55 @@ section#geojson-view {
 }
 
 /* ========================================
+   Mode menu
+   ======================================== */
+
+nav#mode-menu {
+  border-bottom: var(--primary-border) solid var(--border-width);
+}
+
+nav#mode-menu>ul:first-child {
+  margin-left: calc(var(--spacing) * -1);
+}
+
+nav#mode-menu>ul:first-child>li:first-child {
+  padding-left: var(--spacing);
+  position: relative;
+  min-width: 4rem;
+  color: var(--primary-inverse);
+  background-color: var(--primary);
+}
+
+nav#mode-menu>ul:first-child>li:first-child::after {
+  content: "";
+  position: absolute;
+  left: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-top: calc(var(--line-height) * 0.5rem + var(--nav-element-spacing-vertical)) solid transparent;
+  border-bottom: calc(var(--line-height) * 0.5rem + var(--nav-element-spacing-vertical)) solid transparent;
+  border-left: 1rem solid var(--primary);
+}
+
+nav#mode-menu[data-mode="view"]>ul:first-child>li:first-child {
+  background-color: var(--palette-green);
+}
+
+nav#mode-menu[data-mode="view"]>ul:first-child>li:first-child::after {
+  border-left-color: var(--palette-green);
+}
+
+nav#mode-menu[data-mode="diff"]>ul:first-child>li:first-child {
+  background-color: var(--palette-purple);
+}
+
+nav#mode-menu[data-mode="diff"]>ul:first-child>li:first-child::after {
+  border-left-color: var(--palette-purple);
+}
+
+/* ========================================
    Sidebar
    ======================================== */
 

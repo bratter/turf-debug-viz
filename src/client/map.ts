@@ -111,11 +111,11 @@ class MapView {
     });
   }
 
-  get showVerticies() {
+  get showVertices() {
     return this._showVertices;
   }
 
-  set showVerticies(showVerticies) {
+  set showVertices(showVerticies) {
     this._showVertices = showVerticies;
     this.updateCircleFilters();
   }
@@ -299,7 +299,7 @@ class MapView {
   }
 
   private getCircleFilter() {
-    return this.showVerticies ? CIRCLE_FILTER_SHOW_VERTICIES : CIRCLE_FILTER_HIDE_VERTICIES;
+    return this.showVertices ? CIRCLE_FILTER_SHOW_VERTICIES : CIRCLE_FILTER_HIDE_VERTICIES;
   }
 
   // Add a popup handler for the layer with the passed id
