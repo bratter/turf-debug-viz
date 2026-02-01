@@ -3,6 +3,8 @@
  */
 
 import { Selection, create } from "d3-selection";
+import { buildDiffMenu } from "./diff";
+import { buildViewMenu } from "./view";
 
 const STORAGE_KEY_AUTOFIT = "turf-debug-autofit";
 
@@ -23,7 +25,7 @@ function appendText<E extends Element>(sel: Selection<E, any, any, any>, text: s
 
 function changeMode(mode: Mode) {
   window.dispatchEvent(new CustomEvent("modechange", {
-    detail: { mode },
+    detail: mode,
   }));
 }
 
@@ -56,13 +58,13 @@ const mapControls = makeMapControls();
     htmlValue = menus[Mode.VIEW];
   }
 
-  container.append(htmlValue, mapControls);
+  container.append(...htmlValue, mapControls);
 }
 
 window.addEventListener("modechange", (e) => {
   // Get the incoming mode and check that it is valid
-  const newMode = (e as CustomEvent).detail.mode;
-  const newMenu = menus[newMode] as HTMLElement | undefined;
+  const newMode = e.detail;
+  const newMenu = menus[newMode];
 
   if (!newMenu) {
     throw new Error(`Invalid mode menu provided: ${newMode}`);
@@ -72,27 +74,9 @@ window.addEventListener("modechange", (e) => {
 
   if (newMode !== currentMode) {
     container.dataset.mode = newMode;
-    container.replaceChildren(newMenu, mapControls);
+    container.replaceChildren(...newMenu, mapControls);
   }
 });
-
-function buildViewMenu(): HTMLElement {
-  const left = create("ul");
-
-  // The mode indicator
-  left.append("li").text("view");
-
-  return left.node() as HTMLElement;
-}
-
-function buildDiffMenu(): HTMLElement {
-  const left = create("ul");
-
-  // The mode indicator
-  left.append("li").text("diff");
-
-  return left.node() as HTMLElement;
-}
 
 /**
  * Common map controls.

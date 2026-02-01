@@ -5,7 +5,7 @@
 import type { GeoJSON, Feature, FeatureCollection } from "geojson";
 import { isDark } from "../../node_modules/theme-switcher/dist/theme-switcher.js";
 import { config } from "../config.js";
-import { RowData } from "../client.ts";
+import { ViewRow } from "../client.ts";
 import { createMetadataHTML, getFeatureColor } from "./helpers.ts";
 
 // MapBox GL is loaded via CDN script tag
@@ -46,14 +46,14 @@ function normalizeToFeatures(geojson: GeoJSON): Feature | FeatureCollection {
  * Manage a MapboxWebGL map.
  */
 class MapView {
-  getRenderData: () => RowData[];
+  getRenderData: () => ViewRow[];
 
   private map: mapboxgl.Map;
   private popup: mapboxgl.Popup;
   private currentStyleUrl: string;
   private _showVertices: boolean;
 
-  constructor(container: HTMLElement | string, getRenderData: () => RowData[], showVerticies = false) {
+  constructor(container: HTMLElement | string, getRenderData: () => ViewRow[], showVerticies = false) {
     this.getRenderData = getRenderData;
     this._showVertices = showVerticies;
 
@@ -120,7 +120,7 @@ class MapView {
     this.updateCircleFilters();
   }
 
-  addToMap(row: RowData) {
+  addToMap(row: ViewRow) {
     try {
       const sourceId = `source-${row.index}`;
       const color = getFeatureColor(row.index);

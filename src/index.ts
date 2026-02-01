@@ -15,7 +15,7 @@ import { WebSocketServer, type WebSocket } from "ws";
 // Configuration from environment variables
 const HOST = process.env.TURF_DEBUG_HOST ?? "127.0.0.1";
 // TODO: Number parsing should be more rigorous
-const PORT = Number(process.env.TURF_DEBUG_PORT ?? 7777);
+const PORT = Number(process.env.TURF_DEBUG_PORT ?? 8873);
 
 // Simple logging utilities
 const logger = {

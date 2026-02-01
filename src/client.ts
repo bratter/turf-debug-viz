@@ -3,7 +3,7 @@
  * Connects to WebSocket relay and displays incoming debug messages
  */
 
-import type { GeoJSON } from "geojson";
+import type { DebugMessage, SendMessage } from "../types.js";
 import { uiThemeSwitcher, getTheme, setTheme } from "../node_modules/theme-switcher/dist/theme-switcher.js";
 import { getFeatureColor, createMetadataHTML } from "./client/helpers.ts";
 import { MapView } from "./client/map.ts";
@@ -13,15 +13,14 @@ declare global {
   interface Window {
     map: MapView | undefined;
   }
+
+  interface WindowEventMap {
+    modechange: CustomEvent<Mode>;
+  }
 }
 
-interface DebugMessage {
-  label?: string | null;
-  ts: number;
-  geojson: GeoJSON;
-}
-
-interface RowData extends DebugMessage {
+/** A send message combined with its view state in the UI */
+interface ViewRow extends SendMessage {
   // Stable index assigned at insertion
   index: number;
   isExpanded: boolean;
@@ -43,7 +42,6 @@ const statusIndicator = document.getElementById("status") as HTMLDivElement;
 const sidebarToggleBtn = document.getElementById("sidebar-toggle") as HTMLButtonElement;
 const sidebar = document.getElementById("sidebar") as HTMLDivElement;
 const messageLog = document.getElementById("log") as HTMLDivElement;
-const clearBtn = document.getElementById("clear") as HTMLButtonElement;
 
 // ========================================
 // State Variables
@@ -51,7 +49,7 @@ const clearBtn = document.getElementById("clear") as HTMLButtonElement;
 
 let webSocket: WebSocket | undefined;
 // FIX: Row data structure may need to be improved or abstracted
-let rows: RowData[] = [];
+let rows: ViewRow[] = [];
 let nextIndex = 0; // Global counter for stable row indices
 
 // ========================================
@@ -135,24 +133,36 @@ function connect(): void {
   webSocket.addEventListener("message", async (ev) => {
     let msg: DebugMessage;
     try {
-      msg = JSON.parse(ev.data) as DebugMessage;
+      msg = JSON.parse(ev.data);
     } catch (err) {
       console.error("Failed to parse message:", ev.data, err);
       return;
     }
 
-    // Create RowData with stable index and initial state
-    const row: RowData = {
-      ...msg,
-      index: nextIndex++,
-      isExpanded: false,
-      isHidden: false,
-    };
+    switch (msg.kind) {
+      // TODO: This logic likely needs to be handled in the view logic file
+      case "send":
+        // Create ViewRow with stable index and initial state
+        const row: ViewRow = {
+          ...msg,
+          index: nextIndex++,
+          isExpanded: false,
+          isHidden: false,
+        };
 
-    rows.push(row);
-    window.map?.addToMap(row);
-    renderMessageLog();
-    if (getAutoFit()) window.map?.fitAll();
+        rows.push(row);
+        window.map?.addToMap(row);
+        renderMessageLog();
+        if (getAutoFit()) window.map?.fitAll();
+        break;
+
+      case "diff":
+        // TODO: Process diff messages, likely in diff logic file
+        break;
+
+      default:
+        console.error("Unknown message kind:", (msg as any).kind);
+    }
   });
 }
 
@@ -209,7 +219,7 @@ function createActionButtons(index: number): HTMLDivElement {
 }
 
 // Create header element for a row
-function createRowHeader(row: RowData): HTMLDivElement {
+function createRowHeader(row: ViewRow): HTMLDivElement {
   const header = document.createElement("div");
   header.className = "meta";
 
@@ -235,7 +245,7 @@ function createRowHeader(row: RowData): HTMLDivElement {
 }
 
 // Create a complete row element
-function createRowElement(row: RowData): HTMLDivElement {
+function createRowElement(row: ViewRow): HTMLDivElement {
   const rowElement = document.createElement("div");
 
   // Build class names
@@ -289,17 +299,18 @@ sidebarToggleBtn.addEventListener("click", toggleSidebar);
 // Initialize map with accessor function for render data
 
 // FIX: Re-enable
-window.map = new MapView("map-view", () => rows);
+//window.map = new MapView("map-view", () => rows);
 
 // Clear button
-clearBtn.addEventListener("click", () => {
-  window.map?.clearMap();
-  rows = [];
-  nextIndex = 0;
-  renderMessageLog();
-});
+// FIX: Move to view control logic
+// clearBtn.addEventListener("click", () => {
+//   window.map?.clearMap();
+//   rows = [];
+//   nextIndex = 0;
+//   renderMessageLog();
+// });
 
 // Connect to WebSocket
 connect();
 
-export { RowData };
+export { ViewRow };

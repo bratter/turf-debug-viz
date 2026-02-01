@@ -6,13 +6,34 @@
 import type { GeoJSON } from "geojson";
 
 /**
- * Debug message structure sent over the wire
+ * Base fields shared by all debug message types
  */
-export interface DebugMessage {
+interface DebugMessageBase {
   label?: string | null;
   ts: number;
+}
+
+/**
+ * Standard send message with a single GeoJSON object
+ */
+export interface SendMessage extends DebugMessageBase {
+  kind: "send";
   geojson: GeoJSON;
 }
+
+/**
+ * Diff message comparing two GeoJSON objects
+ */
+export interface DiffMessage extends DebugMessageBase {
+  kind: "diff";
+  from: GeoJSON;
+  to: GeoJSON;
+}
+
+/**
+ * Tagged union of all debug message types
+ */
+export type DebugMessage = SendMessage | DiffMessage;
 
 /**
  * Global type declarations for the export hook
@@ -45,6 +66,21 @@ declare global {
     function send(geojson: GeoJSON, label?: string): void;
 
     /**
+     * Synchronously send two GeoJSON objects to the relay server and diff them.
+     * Blocks until connection is established and message is sent.
+     * Works correctly in debuggers when stepping through code.
+     *
+     * Note: This API is intentionally synchronous for debug instrumentation.
+     * It ensures messages are sent before continuing execution, which is
+     * essential when stepping through code in a debugger.
+     *
+     * @param geojsonFrom - Any valid GeoJSON object as the first compare point
+     * @param geojsonTo - Any valid GeoJSON object as the second compare point
+     * @param label - A label to identify the diff
+     */
+    function diff(geojsonFrom: GeoJSON, goejsonTo: GeoJSON, label?: string): void;
+
+    /**
      * Disconnects from the debug relay server.
      * Note: Not required for process exit - WebSocket is unref'd and won't prevent exit.
      */
@@ -57,5 +93,3 @@ declare global {
     function isConnected(): boolean;
   }
 }
-
-export { };

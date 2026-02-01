@@ -3,7 +3,7 @@
  */
 
 import { isDark } from "../../node_modules/theme-switcher/dist/theme-switcher.js";
-import { RowData } from "../client.ts";
+import { ViewRow } from "../client.ts";
 
 // TokyoNight color palettes for feature visualization
 const COLOR_PALETTE_LIGHT = [
@@ -42,7 +42,7 @@ function getFeatureColor(index: number): string {
  *
  * Includes <br> separated lines.
  */
-function createMetadataHTML(row: RowData): string {
+function createMetadataHTML(row: ViewRow): string {
   // Build display lines array
   const displayLines: string[] = [];
 

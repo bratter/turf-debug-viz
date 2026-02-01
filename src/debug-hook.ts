@@ -12,7 +12,7 @@
  */
 
 import type { GeoJSON } from "geojson";
-import type { DebugMessage } from "../types.js";
+import type { SendMessage, DiffMessage } from "../types.js";
 import WebSocket from "ws";
 import deasync from "deasync";
 import * as turf from "@turf/turf";
@@ -118,7 +118,7 @@ globalThis.turf = turf;
 
 globalThis.DebugViz = {
   /**
-   * Synchronously sends GeoJSON to the relay server.
+   * Synchronously send GeoJSON to the relay server.
    * Blocks until connection is established and message is sent.
    * Works correctly in debuggers when stepping through code.
    *
@@ -132,10 +132,37 @@ globalThis.DebugViz = {
       connection = connect();
     }
 
-    const msg: DebugMessage = {
+    const msg: SendMessage = {
+      kind: "send",
       label,
       ts: Date.now(),
       geojson,
+    };
+
+    const body = JSON.stringify(msg);
+    connection.send(body);
+  },
+
+  /**
+   * Synchronously send two GeoJSON objects to the relay server and diff them.
+   * Blocks until connection is established and message is sent.
+   * Works correctly in debuggers when stepping through code.
+   *
+   * Note: This API is intentionally synchronous for debug instrumentation.
+   * It ensures messages are sent before continuing execution, which is
+   * essential when stepping through code in a debugger.
+   */
+  diff: (geojsonFrom: GeoJSON, geojsonTo: GeoJSON, label?: string) => {
+    if (!connection) {
+      connection = connect();
+    }
+
+    const msg: DiffMessage = {
+      kind: "diff",
+      label,
+      ts: Date.now(),
+      from: geojsonFrom,
+      to: geojsonTo,
     };
 
     const body = JSON.stringify(msg);
