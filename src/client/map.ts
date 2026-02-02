@@ -3,9 +3,9 @@
  */
 
 import type { GeoJSON, Feature, FeatureCollection } from "geojson";
+import type { ViewRow } from "../../types.js";
 import { isDark } from "../../node_modules/theme-switcher/dist/theme-switcher.js";
 import { config } from "../config.js";
-import { ViewRow } from "../client.ts";
 import { createMetadataHTML, getFeatureColor } from "./helpers.ts";
 
 // MapBox GL is loaded via CDN script tag
@@ -46,14 +46,14 @@ function normalizeToFeatures(geojson: GeoJSON): Feature | FeatureCollection {
  * Manage a MapboxWebGL map.
  */
 class MapView {
-  getRenderData: () => ViewRow[];
+  getRenderData: () => readonly ViewRow[];
 
   private map: mapboxgl.Map;
   private popup: mapboxgl.Popup;
   private currentStyleUrl: string;
   private _showVertices: boolean;
 
-  constructor(container: HTMLElement | string, getRenderData: () => ViewRow[], showVerticies = false) {
+  constructor(container: HTMLElement | string, getRenderData: () => readonly ViewRow[], showVerticies = false) {
     this.getRenderData = getRenderData;
     this._showVertices = showVerticies;
 
@@ -278,23 +278,18 @@ class MapView {
     this.map.resize();
   }
 
-  // Toggle visibility of a feature on the map
-  toggleVisibility(index: number): void {
-    const row = this.getRenderData().find((r) => r.index === index);
-    if (!row) return;
-
+  // Set visibility of a feature's layers on the map
+  setLayerVisibility(index: number, visible: boolean): void {
     try {
-      row.isHidden = !row.isHidden;
-      const visibility = row.isHidden ? "none" : "visible";
+      const visibility = visible ? "visible" : "none";
 
-      // Toggle layer visibility
       this.map.setLayoutProperty(`layer-${index}-fill`, "visibility", visibility);
       this.map.setLayoutProperty(`layer-${index}-line`, "visibility", visibility);
       this.map.setLayoutProperty(`layer-${index}-line-hitzone`, "visibility", visibility);
       this.map.setLayoutProperty(`layer-${index}-circle`, "visibility", visibility);
       this.map.setLayoutProperty(`layer-${index}-circle-hitzone`, "visibility", visibility);
     } catch (err) {
-      console.error(`Failed to toggle visibility for row ${index}:`, err);
+      console.error(`Failed to set visibility for row ${index}:`, err);
     }
   }
 

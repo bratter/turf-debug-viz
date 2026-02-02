@@ -36,6 +36,18 @@ export interface DiffMessage extends DebugMessageBase {
 export type DebugMessage = SendMessage | DiffMessage;
 
 /**
+ * A send message combined with its view state in the UI
+ */
+export interface ViewRow extends SendMessage {
+  /** Stable index assigned at insertion */
+  index: number;
+  /** Whether the row is expanded in the sidebar */
+  isExpanded: boolean;
+  /** Whether the row is hidden on the map */
+  isHidden: boolean;
+}
+
+/**
  * Global type declarations for the export hook
  *
  * The best way to use is a reference path in the system under test:

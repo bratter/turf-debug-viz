@@ -3,11 +3,12 @@
  * Connects to WebSocket relay and displays incoming debug messages
  */
 
-import type { DebugMessage, SendMessage } from "../types.js";
+import type { DebugMessage, ViewRow } from "../types.js";
 import { uiThemeSwitcher, getTheme, setTheme } from "../node_modules/theme-switcher/dist/theme-switcher.js";
 import { getFeatureColor, createMetadataHTML } from "./client/helpers.ts";
 import { MapView } from "./client/map.ts";
 import { Mode, changeMode, getAutoFit } from "./client/mode-menu.ts";
+import { ViewState } from "./client/view.ts";
 
 declare global {
   interface Window {
@@ -17,14 +18,6 @@ declare global {
   interface WindowEventMap {
     modechange: CustomEvent<Mode>;
   }
-}
-
-/** A send message combined with its view state in the UI */
-interface ViewRow extends SendMessage {
-  // Stable index assigned at insertion
-  index: number;
-  isExpanded: boolean;
-  isHidden: boolean;
 }
 
 // ========================================
@@ -48,9 +41,9 @@ const messageLog = document.getElementById("log") as HTMLDivElement;
 // ========================================
 
 let webSocket: WebSocket | undefined;
-// FIX: Row data structure may need to be improved or abstracted
-let rows: ViewRow[] = [];
-let nextIndex = 0; // Global counter for stable row indices
+// TODO: Consider moving this, diffState, and the map to a context module
+// for better unilateral dependency flow
+const viewState = new ViewState();
 
 // ========================================
 // Theme Management
@@ -140,19 +133,9 @@ function connect(): void {
     }
 
     switch (msg.kind) {
-      // TODO: This logic likely needs to be handled in the view logic file
       case "send":
-        // Create ViewRow with stable index and initial state
-        const row: ViewRow = {
-          ...msg,
-          index: nextIndex++,
-          isExpanded: false,
-          isHidden: false,
-        };
-
-        rows.push(row);
+        const row = viewState.addRow(msg);
         window.map?.addToMap(row);
-        renderMessageLog();
         if (getAutoFit()) window.map?.fitAll();
         break;
 
@@ -172,12 +155,8 @@ function connect(): void {
 
 // Delete a row by its stable index
 function deleteRow(index: number): void {
-  const arrayIndex = rows.findIndex((row) => row.index === index);
-  if (arrayIndex === -1) return;
-
   window.map?.removeFromMap(index);
-  rows.splice(arrayIndex, 1);
-  renderMessageLog();
+  viewState.deleteRow(index);
   if (getAutoFit()) window.map?.fitAll();
 }
 
@@ -191,9 +170,11 @@ function createActionButtons(index: number): HTMLDivElement {
   visibilityBtn.textContent = "👁️";
   visibilityBtn.addEventListener("click", (e) => {
     e.stopPropagation();
-    window.map?.toggleVisibility(index);
-    // Re-render to update row styling
-    renderMessageLog();
+    const row = viewState.getRow(index);
+    if (!row) return;
+    const newHidden = !row.isHidden;
+    viewState.setHidden(index, newHidden);
+    window.map?.setLayerVisibility(index, !newHidden);
   });
   buttonContainer.appendChild(visibilityBtn);
 
@@ -236,8 +217,7 @@ function createRowHeader(row: ViewRow): HTMLDivElement {
   // Toggle expand/collapse on header click
   header.addEventListener("click", (e) => {
     if ((e.target as HTMLElement).tagName !== "BUTTON") {
-      row.isExpanded = !row.isExpanded;
-      renderMessageLog();
+      viewState.setExpanded(row.index, !row.isExpanded);
     }
   });
 
@@ -274,6 +254,7 @@ function renderMessageLog(): void {
   messageLog.innerHTML = "";
 
   // Display in reverse order of arrival (most recent first)
+  const rows = viewState.getRows();
   for (let i = rows.length - 1; i >= 0; i--) {
     const row = rows[i];
     const rowElement = createRowElement(row);
@@ -297,20 +278,17 @@ if (!getSidebarVisible()) {
 sidebarToggleBtn.addEventListener("click", toggleSidebar);
 
 // Initialize map with accessor function for render data
+window.map = new MapView("map-view", () => viewState.getRows());
 
-// FIX: Re-enable
-//window.map = new MapView("map-view", () => rows);
+// Subscribe to viewState changes for re-rendering
+viewState.addEventListener("change", (e) => {
+  renderMessageLog();
 
-// Clear button
-// FIX: Move to view control logic
-// clearBtn.addEventListener("click", () => {
-//   window.map?.clearMap();
-//   rows = [];
-//   nextIndex = 0;
-//   renderMessageLog();
-// });
+  // Handle clear: also clear the map
+  if (e.detail.type === "clear") {
+    window.map?.clearMap();
+  }
+});
 
 // Connect to WebSocket
 connect();
-
-export { ViewRow };
