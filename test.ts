@@ -5,6 +5,7 @@
  * Then run: npx tsx --import ./export-hook.ts test.ts
  */
 
+import { Polygon } from "geojson";
 import { Point } from "geojson";
 
 console.log("Testing export hook with GeoJSON");
@@ -17,7 +18,7 @@ const point: Point = {
 DebugViz.send(point, "test-point");
 
 // Test with a Polygon near the test-point
-DebugViz.send({
+const polygon1: Polygon = {
   type: "Polygon",
   coordinates: [
     [
@@ -28,7 +29,8 @@ DebugViz.send({
       [-122.42, 37.77],
     ],
   ],
-}, "test-polygon");
+};
+DebugViz.send(polygon1, "test-polygon");
 
 // Test with a Feature
 DebugViz.send({
@@ -69,6 +71,21 @@ DebugViz.send({
     },
   ],
 }, "test-collection");
+
+// Test sending a diff
+const polygon2: Polygon = {
+  type: "Polygon",
+  coordinates: [
+    [
+      [-122.42, 37.77],
+      [-122.41, 37.77],
+      [-122.41, 37.78],
+      [-122.42, 37.78],
+      [-122.42, 37.77],
+    ],
+  ],
+};
+DebugViz.diff(polygon1, polygon2, "diff test");
 
 // Test access to turf
 console.log(turf.bbox(point));

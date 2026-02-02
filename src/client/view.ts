@@ -29,7 +29,7 @@ interface ViewStateEventMap {
 // ========================================
 
 // Interface merging for typed event listeners (no runtime cost)
-export interface ViewState {
+interface ViewState {
   addEventListener<K extends keyof ViewStateEventMap>(
     type: K,
     listener: (ev: ViewStateEventMap[K]) => void,
@@ -55,7 +55,7 @@ export interface ViewState {
 /**
  * State management class for main view data
  */
-export class ViewState extends EventTarget {
+class ViewState extends EventTarget {
   private rows: ViewRow[] = [];
   private nextIndex = 0;
 
@@ -142,7 +142,7 @@ export class ViewState extends EventTarget {
 // Singleton Export
 // ========================================
 
-//export const viewState = new ViewState();
+export const viewState = new ViewState();
 
 // ========================================
 // View Menu UI

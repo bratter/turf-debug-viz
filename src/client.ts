@@ -3,12 +3,13 @@
  * Connects to WebSocket relay and displays incoming debug messages
  */
 
-import type { DebugMessage, ViewRow } from "../types.js";
+import type { DebugMessage, SendMessage, ViewRow } from "../types.js";
 import { uiThemeSwitcher, getTheme, setTheme } from "../node_modules/theme-switcher/dist/theme-switcher.js";
 import { getFeatureColor, createMetadataHTML } from "./client/helpers.ts";
 import { MapView } from "./client/map.ts";
 import { Mode, changeMode, getAutoFit } from "./client/mode-menu.ts";
-import { ViewState } from "./client/view.ts";
+import { viewState } from "./client/view.ts";
+import { diffState } from "./client/diff.ts";
 
 declare global {
   interface Window {
@@ -41,9 +42,6 @@ const messageLog = document.getElementById("log") as HTMLDivElement;
 // ========================================
 
 let webSocket: WebSocket | undefined;
-// TODO: Consider moving this, diffState, and the map to a context module
-// for better unilateral dependency flow
-const viewState = new ViewState();
 
 // ========================================
 // Theme Management
@@ -140,7 +138,30 @@ function connect(): void {
         break;
 
       case "diff":
-        // TODO: Process diff messages, likely in diff logic file
+        // Create ViewRows for each GeoJSON in the diff
+        // TODO: Variable declarations in case statements are an antipattern
+        const fromMessage: SendMessage = {
+          kind: "send",
+          geojson: msg.from,
+          label: msg.label ? `${msg.label} (from)` : "(from)",
+          ts: msg.ts,
+        };
+        const toMessage: SendMessage = {
+          kind: "send",
+          geojson: msg.to,
+          label: msg.label ? `${msg.label} (to)` : "(to)",
+          ts: msg.ts,
+        };
+
+        const fromRow = viewState.addRow(fromMessage);
+        const toRow = viewState.addRow(toMessage);
+        window.map?.addToMap(fromRow);
+        window.map?.addToMap(toRow);
+
+        // Create the diff entry
+        diffState.addDiff(fromRow, toRow, msg.label);
+
+        if (getAutoFit()) window.map?.fitAll();
         break;
 
       default:

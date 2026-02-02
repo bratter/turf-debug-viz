@@ -9,7 +9,7 @@ import type { GeoJSON } from "geojson";
  * Base fields shared by all debug message types
  */
 interface DebugMessageBase {
-  label?: string | null;
+  label?: string;
   ts: number;
 }
 
@@ -45,6 +45,22 @@ export interface ViewRow extends SendMessage {
   isExpanded: boolean;
   /** Whether the row is hidden on the map */
   isHidden: boolean;
+}
+
+/**
+ * A diff entry comparing two ViewRows
+ */
+export interface DiffEntry {
+  /** Stable identifier for this diff */
+  id: number;
+  /** Reference to the "from" shape */
+  from: ViewRow;
+  /** Reference to the "to" shape */
+  to: ViewRow;
+  /** Optional label */
+  label?: string;
+  /** Timestamp when created */
+  ts: number;
 }
 
 /**
