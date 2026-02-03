@@ -12,13 +12,11 @@ import { create } from "d3-selection";
 // Event Types
 // ========================================
 
-type ChangeType = "add" | "delete" | "update" | "clear";
-
-interface ViewStateChangeDetail {
-  type: ChangeType;
-  row?: ViewRow;
-  index?: number;
-}
+type ViewStateChangeDetail =
+  | { type: "add"; row: ViewRow }
+  | { type: "delete"; index: number }
+  | { type: "update"; row: ViewRow }
+  | { type: "clear"; rows: ViewRow[] };
 
 interface ViewStateEventMap {
   change: CustomEvent<ViewStateChangeDetail>;
@@ -85,7 +83,7 @@ class ViewState extends EventTarget {
     };
 
     this.rows.push(row);
-    this.emit("add", { row });
+    this.emit({ type: "add", row });
     return row;
   }
 
@@ -97,7 +95,7 @@ class ViewState extends EventTarget {
     if (arrayIndex === -1) return;
 
     this.rows.splice(arrayIndex, 1);
-    this.emit("delete", { index });
+    this.emit({ type: "delete", index });
   }
 
   /**
@@ -108,7 +106,7 @@ class ViewState extends EventTarget {
     if (!row || row.isExpanded === expanded) return;
 
     row.isExpanded = expanded;
-    this.emit("update", { row });
+    this.emit({ type: "update", row });
   }
 
   /**
@@ -119,22 +117,21 @@ class ViewState extends EventTarget {
     if (!row || row.isHidden === hidden) return;
 
     row.isHidden = hidden;
-    this.emit("update", { row });
+    this.emit({ type: "update", row });
   }
 
   /**
    * Clear all rows
    */
   clear(): void {
+    const rows = this.rows;
     this.rows = [];
     this.nextIndex = 0;
-    this.emit("clear", {});
+    this.emit({ type: "clear", rows });
   }
 
-  private emit(type: ChangeType, detail: Omit<ViewStateChangeDetail, "type">): void {
-    this.dispatchEvent(
-      new CustomEvent("change", { detail: { type, ...detail } })
-    );
+  private emit(detail: ViewStateChangeDetail): void {
+    this.dispatchEvent(new CustomEvent("change", { detail }));
   }
 }
 

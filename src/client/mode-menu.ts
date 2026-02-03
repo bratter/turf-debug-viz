@@ -8,29 +8,25 @@ import { buildViewMenu } from "./view";
 
 const STORAGE_KEY_AUTOFIT = "turf-debug-autofit";
 
-enum Mode {
+export enum Mode {
   VIEW = "view",
   DIFF = "diff"
 }
 
-/**
- * Append a text node without replacing all children.
- *
- * Use with `selection.call(appendText, "text")`, but this only appends the
- * static string to the first node, so has limited general purpose use.
- */
-function appendText<E extends Element>(sel: Selection<E, any, any, any>, text: string) {
-  sel.node()?.append(text);
+let currentMode: Mode = Mode.VIEW;
+
+export function getCurrentMode(): Mode {
+  return currentMode;
 }
 
-function changeMode(mode: Mode) {
+export function changeMode(mode: Mode) {
   window.dispatchEvent(new CustomEvent("modechange", {
     detail: mode,
   }));
 }
 
 // TODO: Pull this from the checkbox when not in this file?
-function getAutoFit(): boolean {
+export function getAutoFit(): boolean {
   const stored = localStorage.getItem(STORAGE_KEY_AUTOFIT);
   return stored !== "false"; // Default to true
 }
@@ -70,13 +66,23 @@ window.addEventListener("modechange", (e) => {
     throw new Error(`Invalid mode menu provided: ${newMode}`);
   }
 
-  const currentMode = container.dataset.mode;
-
   if (newMode !== currentMode) {
+    // Update module-level state before DOM update
+    currentMode = newMode;
     container.dataset.mode = newMode;
     container.replaceChildren(...newMenu, mapControls);
   }
 });
+
+/**
+ * Append a text node without replacing all children.
+ *
+ * Use with `selection.call(appendText, "text")`, but this only appends the
+ * static string to the first node, so has limited general purpose use.
+ */
+function appendText<E extends Element>(sel: Selection<E, any, any, any>, text: string) {
+  sel.node()?.append(text);
+}
 
 /**
  * Common map controls.
@@ -117,5 +123,3 @@ function makeMapControls(): HTMLElement {
 
   return controls.node() as HTMLElement;
 }
-
-export { Mode, changeMode, getAutoFit };

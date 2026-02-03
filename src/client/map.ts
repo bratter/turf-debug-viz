@@ -51,11 +51,13 @@ class MapView {
   private map: mapboxgl.Map;
   private popup: mapboxgl.Popup;
   private currentStyleUrl: string;
-  private _showVertices: boolean;
+  private showVerticesInternal: boolean;
+  private fitScheduled = false;
+  private fitTargetIndices: number[] | null = null;
 
   constructor(container: HTMLElement | string, getRenderData: () => readonly ViewRow[], showVerticies = false) {
     this.getRenderData = getRenderData;
-    this._showVertices = showVerticies;
+    this.showVerticesInternal = showVerticies;
 
     // Set MapBox access token
     mapboxgl.accessToken = config.mapboxToken;
@@ -112,11 +114,11 @@ class MapView {
   }
 
   get showVertices() {
-    return this._showVertices;
+    return this.showVerticesInternal;
   }
 
   set showVertices(showVerticies) {
-    this._showVertices = showVerticies;
+    this.showVerticesInternal = showVerticies;
     this.updateCircleFilters();
   }
 
@@ -228,12 +230,10 @@ class MapView {
     }
   }
 
-
-  // Clear all GeoJSON from map
-  clearMap(): void {
+  // Clear specified features from map and reset to world view
+  clearMap(rows: ViewRow[]): void {
     try {
-      // Remove all sources
-      for (const row of this.getRenderData()) {
+      for (const row of rows) {
         this.removeFromMap(row.index);
       }
 
@@ -244,16 +244,32 @@ class MapView {
     }
   }
 
-  // Fit map bounds to show all features
-  fitAll(ignoreHidden = true): void {
-    const rows = this.getRenderData();
+  fit(ignoreHidden?: boolean): void;
+  fit(indices: number[], ignoreHidden?: boolean): void;
+  /** Fit the map to the appropriate feature bounds */
+  fit(indicesOrIgnoreHidden?: number[] | boolean, ignoreHidden = true): void {
+    let rows: readonly ViewRow[];
+
+    if (Array.isArray(indicesOrIgnoreHidden)) {
+      // Specific indices provided
+      const indices = indicesOrIgnoreHidden;
+      rows = this.getRenderData().filter(r => indices.includes(r.index));
+      if (ignoreHidden) {
+        rows = rows.filter(r => !r.isHidden);
+      }
+    } else {
+      // Fit all rows
+      const shouldIgnoreHidden = indicesOrIgnoreHidden ?? true;
+      rows = this.getRenderData();
+      if (shouldIgnoreHidden) {
+        rows = rows.filter(r => !r.isHidden);
+      }
+    }
+
     if (!rows.length) return;
 
     const bounds = [Infinity, Infinity, -Infinity, -Infinity] as any;
-
     for (const row of rows) {
-      if (ignoreHidden && row.isHidden) continue;
-
       const cur = turf.bbox(row.geojson);
       bounds[0] = cur[0] < bounds[0] ? cur[0] : bounds[0];
       bounds[1] = cur[1] < bounds[1] ? cur[1] : bounds[1];
@@ -262,6 +278,34 @@ class MapView {
     }
 
     this.map.fitBounds(bounds, MAP_FIT_OPTIONS);
+  }
+
+  scheduleFit(ignoreHidden?: boolean): void;
+  scheduleFit(indices: number[], ignoreHidden?: boolean): void;
+  /** Schedule a fit that coalesces multiple calls via requestAnimationFrame */
+  scheduleFit(indicesOrIgnoreHidden?: number[] | boolean, ignoreHidden?: boolean): void {
+    if (this.fitScheduled) return;
+    this.fitScheduled = true;
+
+    // Store parameters for deferred execution
+    this.fitTargetIndices = Array.isArray(indicesOrIgnoreHidden) ? indicesOrIgnoreHidden : null;
+    const storedIgnoreHidden = Array.isArray(indicesOrIgnoreHidden)
+      ? (ignoreHidden ?? true)
+      : (indicesOrIgnoreHidden ?? true);
+
+    requestAnimationFrame(() => {
+      this.fitScheduled = false;
+      if (this.fitTargetIndices === null) {
+        this.fit(storedIgnoreHidden);
+      } else {
+        this.fit(this.fitTargetIndices, storedIgnoreHidden);
+      }
+    });
+  }
+
+  // Backwards compatibility aliases
+  fitAll(ignoreHidden = true): void {
+    this.fit(ignoreHidden);
   }
 
   // Zoom map to a single feature

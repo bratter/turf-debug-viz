@@ -12,13 +12,11 @@ import { create } from "d3-selection";
 // Event Types
 // ========================================
 
-type DiffChangeType = "add" | "delete" | "activate" | "clear";
-
-interface DiffStateChangeDetail {
-  type: DiffChangeType;
-  diff?: DiffEntry;
-  id?: number;
-}
+type DiffStateChangeDetail =
+  | { type: "add"; diff: DiffEntry }
+  | { type: "delete"; id: number }
+  | { type: "activate"; diff: DiffEntry | null }
+  | { type: "clear" };
 
 interface DiffStateEventMap {
   change: CustomEvent<DiffStateChangeDetail>;
@@ -90,7 +88,7 @@ class DiffState extends EventTarget {
     };
 
     this.diffs.push(diff);
-    this.emit("add", { diff });
+    this.emit({ type: "add", diff });
 
     if (this.autoActivate) {
       this.setActiveDiff(diff.id);
@@ -111,17 +109,19 @@ class DiffState extends EventTarget {
       this.activeDiffId = null;
     }
 
-    this.emit("delete", { id });
+    this.emit({ type: "delete", id });
   }
 
   /** Set the active diff by id, or null to clear */
-  setActiveDiff(id: number | null): void {
-    if (id !== null && !this.getDiff(id)) return;
+  setActiveDiff(id: number | null) {
+    if (id === null) return this.emit({ type: "activate", diff: null });
     if (this.activeDiffId === id) return;
 
+    const diff = this.getDiff(id);
+    if (!diff) return;
+
     this.activeDiffId = id;
-    const diff = id !== null ? this.getDiff(id) : undefined;
-    this.emit("activate", { diff, id: id ?? undefined });
+    this.emit({ type: "activate", diff });
   }
 
   /** Clear all diffs */
@@ -129,13 +129,11 @@ class DiffState extends EventTarget {
     this.diffs = [];
     this.nextId = 0;
     this.activeDiffId = null;
-    this.emit("clear", {});
+    this.emit({ type: "clear" });
   }
 
-  private emit(type: DiffChangeType, detail: Omit<DiffStateChangeDetail, "type">): void {
-    this.dispatchEvent(
-      new CustomEvent("change", { detail: { type, ...detail } })
-    );
+  private emit(detail: DiffStateChangeDetail): void {
+    this.dispatchEvent(new CustomEvent("change", { detail }));
   }
 }
 

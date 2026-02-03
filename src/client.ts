@@ -7,7 +7,8 @@ import type { DebugMessage, SendMessage, ViewRow } from "../types.js";
 import { uiThemeSwitcher, getTheme, setTheme } from "../node_modules/theme-switcher/dist/theme-switcher.js";
 import { getFeatureColor, createMetadataHTML } from "./client/helpers.ts";
 import { MapView } from "./client/map.ts";
-import { Mode, changeMode, getAutoFit } from "./client/mode-menu.ts";
+import { MapController } from "./client/map-controller.ts";
+import { Mode, changeMode } from "./client/mode-menu.ts";
 import { viewState } from "./client/view.ts";
 import { diffState } from "./client/diff.ts";
 
@@ -132,14 +133,11 @@ function connect(): void {
 
     switch (msg.kind) {
       case "send":
-        const row = viewState.addRow(msg);
-        window.map?.addToMap(row);
-        if (getAutoFit()) window.map?.fitAll();
+        viewState.addRow(msg);
         break;
 
-      case "diff":
+      case "diff": {
         // Create ViewRows for each GeoJSON in the diff
-        // TODO: Variable declarations in case statements are an antipattern
         const fromMessage: SendMessage = {
           kind: "send",
           geojson: msg.from,
@@ -155,14 +153,11 @@ function connect(): void {
 
         const fromRow = viewState.addRow(fromMessage);
         const toRow = viewState.addRow(toMessage);
-        window.map?.addToMap(fromRow);
-        window.map?.addToMap(toRow);
 
-        // Create the diff entry
+        // Create the diff entry (MapController handles map updates via events)
         diffState.addDiff(fromRow, toRow, msg.label);
-
-        if (getAutoFit()) window.map?.fitAll();
         break;
+      }
 
       default:
         console.error("Unknown message kind:", (msg as any).kind);
@@ -176,9 +171,7 @@ function connect(): void {
 
 // Delete a row by its stable index
 function deleteRow(index: number): void {
-  window.map?.removeFromMap(index);
   viewState.deleteRow(index);
-  if (getAutoFit()) window.map?.fitAll();
 }
 
 // Create action buttons (visibility, zoom, and delete) for a row
@@ -193,9 +186,7 @@ function createActionButtons(index: number): HTMLDivElement {
     e.stopPropagation();
     const row = viewState.getRow(index);
     if (!row) return;
-    const newHidden = !row.isHidden;
-    viewState.setHidden(index, newHidden);
-    window.map?.setLayerVisibility(index, !newHidden);
+    viewState.setHidden(index, !row.isHidden);
   });
   buttonContainer.appendChild(visibilityBtn);
 
@@ -301,13 +292,19 @@ sidebarToggleBtn.addEventListener("click", toggleSidebar);
 // Initialize map with accessor function for render data
 window.map = new MapView("map-view", () => viewState.getRows());
 
-// Subscribe to viewState changes for re-rendering
+// Set up MapController to handle state-to-map coordination
+new MapController(window.map);
+
+// Subscribe to viewState changes for re-rendering the sidebar and coordinating with diff state
 viewState.addEventListener("change", (e) => {
   renderMessageLog();
 
-  // Handle clear: also clear the map
-  if (e.detail.type === "clear") {
-    window.map?.clearMap();
+  // If a row is deleted and it was part of the active diff, clear the active diff
+  if (e.detail.type === "delete") {
+    const activeDiff = diffState.getActiveDiff();
+    if (activeDiff && (activeDiff.from.index === e.detail.index || activeDiff.to.index === e.detail.index)) {
+      diffState.setActiveDiff(null);
+    }
   }
 });
 
