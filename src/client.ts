@@ -23,28 +23,6 @@ declare global {
 }
 
 // ========================================
-// Constants
-// ========================================
-
-const STORAGE_KEY_SIDEBAR = "turf-debug-sidebar";
-const WEBSOCKET_RECONNECT_DELAY = 300;
-
-// ========================================
-// DOM Element References
-// ========================================
-
-const statusIndicator = document.getElementById("status") as HTMLDivElement;
-const sidebarToggleBtn = document.getElementById("sidebar-toggle") as HTMLButtonElement;
-const sidebar = document.getElementById("sidebar") as HTMLDivElement;
-const messageLog = document.getElementById("log") as HTMLDivElement;
-
-// ========================================
-// State Variables
-// ========================================
-
-let webSocket: WebSocket | undefined;
-
-// ========================================
 // Theme Management
 // ========================================
 
@@ -57,22 +35,43 @@ window.addEventListener("themechange", () => {
   renderMessageLog();
 });
 
-function getSidebarVisible(): boolean {
-  return localStorage.getItem(STORAGE_KEY_SIDEBAR) !== "false"; // Default true
-}
+// ========================================
+// Panel and Sidebar Visibility
+// ========================================
 
-function setSidebarVisible(visible: boolean): void {
-  localStorage.setItem(STORAGE_KEY_SIDEBAR, visible.toString());
-}
+type PanelState = "both" | "map" | "json";
 
-function toggleSidebar(): void {
-  const isSidebarVisible = !sidebar.classList.contains("sidebar-collapsed");
-  const newVisibility = !isSidebarVisible;
+const STORAGE_KEY_SIDEBAR = "turf-debug-sidebar";
+const STORAGE_KEY_PANEL_MODE = "turf-debug-panel-mode";
 
-  setSidebarVisible(newVisibility);
-  sidebar.classList.toggle("sidebar-collapsed", !newVisibility);
+const mapView = document.getElementById("map-view") as HTMLElement;
+const geojsonView = document.getElementById("geojson-view") as HTMLElement;
+const sidebar = document.getElementById("sidebar") as HTMLDivElement;
+
+let panelState = localStorage.getItem(STORAGE_KEY_PANEL_MODE) as PanelState | null || "both";
+let sidebarState = localStorage.getItem(STORAGE_KEY_SIDEBAR) !== "false";
+
+function cyclePanels() {
+  panelState = panelState === "both" ? "map" : panelState === "map" ? "json" : "both";
+  localStorage.setItem(STORAGE_KEY_PANEL_MODE, panelState);
+
+  mapView.classList.toggle("collapsed", panelState === "json");
+  geojsonView.classList.toggle("collapsed", panelState === "map");
   window.map?.resize();
 }
+
+function toggleSidebar() {
+  sidebarState = !sidebarState;
+  localStorage.setItem(STORAGE_KEY_SIDEBAR, sidebarState.toString());
+
+  sidebar.classList.toggle("collapsed", !sidebarState);
+  window.map?.resize();
+}
+
+// Sidebar toggle
+(document
+  .getElementById("sidebar-toggle") as HTMLButtonElement)
+  .addEventListener("click", toggleSidebar);
 
 // ========================================
 // Key Controls
@@ -80,8 +79,10 @@ function toggleSidebar(): void {
 
 // TODO: Can probably move into a key handling module that also has a register function
 const keyMap = new Map<string, () => void>([
-  ["v", () => changeMode(Mode.VIEW)],
+  ["w", () => changeMode(Mode.VIEW)],
   ["d", () => changeMode(Mode.DIFF)],
+  ["v", cyclePanels],
+  ["s", toggleSidebar],
 ]);
 
 window.addEventListener("keyup", (e) => {
@@ -97,6 +98,12 @@ window.addEventListener("keyup", (e) => {
 // ========================================
 // WebSocket Connection
 // ========================================
+
+const WEBSOCKET_RECONNECT_DELAY = 300;
+
+const statusIndicator = document.getElementById("status") as HTMLDivElement;
+
+let webSocket: WebSocket | undefined;
 
 function setStatus(status: string): void {
   statusIndicator.textContent = status;
@@ -168,6 +175,8 @@ function connect(): void {
 // ========================================
 // Rendering Functions
 // ========================================
+
+const messageLog = document.getElementById("log") as HTMLDivElement;
 
 // Delete a row by its stable index
 function deleteRow(index: number): void {
@@ -280,14 +289,6 @@ function renderMessageLog(): void {
 
 // Initialize theme and toggle
 setTheme(getTheme());
-
-// Initialize sidebar visibility
-if (!getSidebarVisible()) {
-  sidebar.classList.add("sidebar-collapsed");
-}
-
-// Sidebar toggle
-sidebarToggleBtn.addEventListener("click", toggleSidebar);
 
 // Initialize map with accessor function for render data
 window.map = new MapView("map-view", () => viewState.getRows());

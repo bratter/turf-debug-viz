@@ -60,6 +60,13 @@ section#map-view {
 
 section#geojson-view {
   flex: 1;
+  border-left: var(--border-width) solid var(--primary-border);
+  overflow: auto;
+}
+
+section#map-view.collapsed,
+section#geojson-view.collapsed {
+  display: none;
 }
 
 /* MapBox GL container must fill parent */
@@ -129,7 +136,7 @@ nav#mode-menu[data-mode="diff"]>ul:first-child>li:first-child::after {
   flex-direction: column;
 }
 
-#sidebar.sidebar-collapsed {
+#sidebar.collapsed {
   display: none;
 }
 
