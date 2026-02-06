@@ -62,6 +62,7 @@ section#geojson-view {
   flex: 1;
   border-left: var(--border-width) solid var(--primary-border);
   overflow: auto;
+  margin-bottom: 0;
 }
 
 section#map-view.collapsed,
@@ -129,11 +130,10 @@ nav#mode-menu[data-mode="diff"]>ul:first-child>li:first-child::after {
    ======================================== */
 
 #sidebar {
-  width: 25%;
+  width: 20%;
   min-width: var(--sidebar-min-width);
   border-left: var(--border-width) solid var(--primary-border);
-  display: flex;
-  flex-direction: column;
+  overflow: auto;
 }
 
 #sidebar.collapsed {
@@ -141,44 +141,46 @@ nav#mode-menu[data-mode="diff"]>ul:first-child>li:first-child::after {
 }
 
 #log {
-  flex: 1;
-  overflow: auto;
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
 
 .row {
+  position: relative;
+  margin-bottom: 0;
   border-bottom: var(--border-width) solid var(--primary-border);
-  border-left: var(--space-xs) solid var(--background-color);
   padding: var(--space-sm);
-  padding-right: 0;
+  padding-left: calc(var(--space-sm) + var(--space-xs));
+  font-size: 0.875rem;
+  cursor: pointer;
 }
 
-.row:last-child {
-  border-bottom: none;
+.row::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: var(--space-xs);
+  background: var(--swatch);
 }
 
-.row.hidden .meta {
+.row.diff-row::before {
+  background: linear-gradient(to bottom, var(--swatch-from) 50%, var(--swatch-to) 50%);
+}
+
+.row.hidden {
   text-decoration: line-through;
 }
 
-.meta {
-  position: relative;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  padding-right: var(--space-sm);
-  font-size: 0.875rem;
-  cursor: pointer;
-  user-select: none;
-  gap: var(--space-sm);
+.row.active,
+.row:hover {
+  background-color: color-mix(in srgb, var(--primary) 10%, transparent);
 }
 
-.meta:hover {
-  color: var(--color);
-}
-
-.meta-content {
-  flex: 1;
-  line-height: 1.4;
+.row.active:hover {
+  background-color: color-mix(in srgb, var(--primary) 15%, transparent);
 }
 
 .timestamp {
@@ -186,39 +188,27 @@ nav#mode-menu[data-mode="diff"]>ul:first-child>li:first-child::after {
   color: var(--muted-color);
 }
 
-.meta:hover .timestamp {
-  color: var(--muted-color);
-}
-
-.meta strong {
+.row strong {
   font-weight: 700;
 }
 
 .row-buttons {
   position: absolute;
-  top: 0;
+  top: var(--space-sm);
   right: var(--space-sm);
   display: flex;
   gap: var(--space-xs);
   opacity: 0;
-  transition: opacity 0.2s ease;
-  margin: var(--space-xs) 0;
 }
 
 .row:hover .row-buttons {
   opacity: 1;
 }
 
-pre {
-  white-space: pre-wrap;
-  word-wrap: break-word;
-  font-size: 0.875rem;
-  margin-top: var(--space-xs);
+.row-buttons button {
+  padding: var(--nav-link-spacing-vertical) var(--nav-link-spacing-horizontal);
 }
 
-.row.collapsed pre {
-  display: none;
-}
 
 /* ========================================
    Map Popup Styling

@@ -20,6 +20,9 @@ export function getCurrentMode(): Mode {
 }
 
 export function changeMode(mode: Mode) {
+  if (mode === currentMode) return;
+  currentMode = mode;
+
   window.dispatchEvent(new CustomEvent("modechange", {
     detail: mode,
   }));
@@ -66,12 +69,8 @@ window.addEventListener("modechange", (e) => {
     throw new Error(`Invalid mode menu provided: ${newMode}`);
   }
 
-  if (newMode !== currentMode) {
-    // Update module-level state before DOM update
-    currentMode = newMode;
-    container.dataset.mode = newMode;
-    container.replaceChildren(...newMenu, mapControls);
-  }
+  container.dataset.mode = newMode;
+  container.replaceChildren(...newMenu, mapControls);
 });
 
 /**

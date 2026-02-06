@@ -12,7 +12,7 @@ import { create } from "d3-selection";
 // Event Types
 // ========================================
 
-type DiffStateChangeDetail =
+export type DiffStateChangeDetail =
   | { type: "add"; diff: DiffEntry }
   | { type: "delete"; id: number }
   | { type: "activate"; diff: DiffEntry | null }
@@ -104,17 +104,20 @@ class DiffState extends EventTarget {
 
     this.diffs.splice(index, 1);
 
+    this.emit({ type: "delete", id });
+
     // Clear active if it was the deleted diff
     if (this.activeDiffId === id) {
-      this.activeDiffId = null;
+      this.setActiveDiff(null);
     }
-
-    this.emit({ type: "delete", id });
   }
 
   /** Set the active diff by id, or null to clear */
   setActiveDiff(id: number | null) {
-    if (id === null) return this.emit({ type: "activate", diff: null });
+    if (id === null) {
+      this.activeDiffId = null;
+      return this.emit({ type: "activate", diff: null });
+    }
     if (this.activeDiffId === id) return;
 
     const diff = this.getDiff(id);

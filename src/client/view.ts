@@ -12,7 +12,7 @@ import { create } from "d3-selection";
 // Event Types
 // ========================================
 
-type ViewStateChangeDetail =
+export type ViewStateChangeDetail =
   | { type: "add"; row: ViewRow }
   | { type: "delete"; index: number }
   | { type: "update"; row: ViewRow }

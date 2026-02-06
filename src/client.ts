@@ -3,14 +3,14 @@
  * Connects to WebSocket relay and displays incoming debug messages
  */
 
-import type { DebugMessage, SendMessage, ViewRow } from "../types.js";
+import type { DebugMessage, SendMessage } from "../types.js";
 import { uiThemeSwitcher, getTheme, setTheme } from "../node_modules/theme-switcher/dist/theme-switcher.js";
-import { getFeatureColor, createMetadataHTML } from "./client/helpers.ts";
 import { MapView } from "./client/map.ts";
 import { MapController } from "./client/map-controller.ts";
 import { Mode, changeMode } from "./client/mode-menu.ts";
 import { viewState } from "./client/view.ts";
 import { diffState } from "./client/diff.ts";
+import { initList } from "./client/list.ts";
 
 declare global {
   interface Window {
@@ -26,14 +26,10 @@ declare global {
 // Theme Management
 // ========================================
 
-// Set up the theme switcher
+// Set up the theme switcher and initialize
 const themeSwitcherParent = document.getElementById("theme-switcher") as HTMLLIElement;
 themeSwitcherParent.append(uiThemeSwitcher());
-
-// Update row color swatches when the theme changes
-window.addEventListener("themechange", () => {
-  renderMessageLog();
-});
+setTheme(getTheme());
 
 // ========================================
 // Panel and Sidebar Visibility
@@ -73,11 +69,34 @@ function toggleSidebar() {
   .getElementById("sidebar-toggle") as HTMLButtonElement)
   .addEventListener("click", toggleSidebar);
 
+// Initialize the sidebar list renderer (subscribes to state and mode changes)
+initList();
+
+// Cascade ViewRow deletions: remove any diffs referencing the deleted row
+viewState.addEventListener("change", (e) => {
+  if (e.detail.type === "delete") {
+    for (const diff of diffState.getDiffs()) {
+      if (diff.from.index === e.detail.index || diff.to.index === e.detail.index) {
+        diffState.deleteDiff(diff.id);
+      }
+    }
+  }
+});
+
+// ========================================
+// Map Setup
+// ========================================
+
+// Initialize map with accessor function for render data
+// and set up MapController to handle state-to-map coordination
+// FIX: Reactivate when ready
+//window.map = new MapView("map-view", () => viewState.getRows());
+//new MapController(window.map);
+
 // ========================================
 // Key Controls
 // ========================================
 
-// TODO: Can probably move into a key handling module that also has a register function
 const keyMap = new Map<string, () => void>([
   ["w", () => changeMode(Mode.VIEW)],
   ["d", () => changeMode(Mode.DIFF)],
@@ -171,143 +190,6 @@ function connect(): void {
     }
   });
 }
-
-// ========================================
-// Rendering Functions
-// ========================================
-
-const messageLog = document.getElementById("log") as HTMLDivElement;
-
-// Delete a row by its stable index
-function deleteRow(index: number): void {
-  viewState.deleteRow(index);
-}
-
-// Create action buttons (visibility, zoom, and delete) for a row
-function createActionButtons(index: number): HTMLDivElement {
-  const buttonContainer = document.createElement("div");
-  buttonContainer.className = "row-buttons";
-
-  const visibilityBtn = document.createElement("button");
-  visibilityBtn.className = "visibility-btn";
-  visibilityBtn.textContent = "👁️";
-  visibilityBtn.addEventListener("click", (e) => {
-    e.stopPropagation();
-    const row = viewState.getRow(index);
-    if (!row) return;
-    viewState.setHidden(index, !row.isHidden);
-  });
-  buttonContainer.appendChild(visibilityBtn);
-
-  const zoomBtn = document.createElement("button");
-  zoomBtn.className = "zoom-btn";
-  zoomBtn.textContent = "🔍";
-  zoomBtn.addEventListener("click", (e) => {
-    e.stopPropagation();
-    window.map?.zoomToFeature(index);
-  });
-  buttonContainer.appendChild(zoomBtn);
-
-  const deleteBtn = document.createElement("button");
-  deleteBtn.className = "delete-btn";
-  deleteBtn.textContent = "🗑️";
-  deleteBtn.addEventListener("click", (e) => {
-    e.stopPropagation();
-    deleteRow(index);
-  });
-  buttonContainer.appendChild(deleteBtn);
-
-  return buttonContainer;
-}
-
-// Create header element for a row
-function createRowHeader(row: ViewRow): HTMLDivElement {
-  const header = document.createElement("div");
-  header.className = "meta";
-
-  // Create content container for text elements
-  const contentSpan = document.createElement("span");
-  contentSpan.className = "meta-content";
-  contentSpan.innerHTML = createMetadataHTML(row);
-  header.appendChild(contentSpan);
-
-  // Add action buttons
-  const buttonContainer = createActionButtons(row.index);
-  header.appendChild(buttonContainer);
-
-  // Toggle expand/collapse on header click
-  header.addEventListener("click", (e) => {
-    if ((e.target as HTMLElement).tagName !== "BUTTON") {
-      viewState.setExpanded(row.index, !row.isExpanded);
-    }
-  });
-
-  return header;
-}
-
-// Create a complete row element
-function createRowElement(row: ViewRow): HTMLDivElement {
-  const rowElement = document.createElement("div");
-
-  // Build class names
-  const classNames = ["row"];
-  if (!row.isExpanded) classNames.push("collapsed");
-  if (row.isHidden) classNames.push("hidden");
-  rowElement.className = classNames.join(" ");
-
-  // Add color swatch using border-left
-  const color = getFeatureColor(row.index);
-  // Reduce opacity for hidden rows
-  const borderColor = row.isHidden ? color + "40" : color; // 40 = 25% opacity in hex
-  rowElement.style.borderLeftColor = borderColor;
-
-  const header = createRowHeader(row);
-  rowElement.appendChild(header);
-
-  const pre = document.createElement("pre");
-  pre.textContent = JSON.stringify(row.geojson, null, 2);
-  rowElement.appendChild(pre);
-
-  return rowElement;
-}
-
-function renderMessageLog(): void {
-  messageLog.innerHTML = "";
-
-  // Display in reverse order of arrival (most recent first)
-  const rows = viewState.getRows();
-  for (let i = rows.length - 1; i >= 0; i--) {
-    const row = rows[i];
-    const rowElement = createRowElement(row);
-    messageLog.appendChild(rowElement);
-  }
-}
-
-// ========================================
-// Initialization and Event Listeners
-// ========================================
-
-// Initialize theme and toggle
-setTheme(getTheme());
-
-// Initialize map with accessor function for render data
-window.map = new MapView("map-view", () => viewState.getRows());
-
-// Set up MapController to handle state-to-map coordination
-new MapController(window.map);
-
-// Subscribe to viewState changes for re-rendering the sidebar and coordinating with diff state
-viewState.addEventListener("change", (e) => {
-  renderMessageLog();
-
-  // If a row is deleted and it was part of the active diff, clear the active diff
-  if (e.detail.type === "delete") {
-    const activeDiff = diffState.getActiveDiff();
-    if (activeDiff && (activeDiff.from.index === e.detail.index || activeDiff.to.index === e.detail.index)) {
-      diffState.setActiveDiff(null);
-    }
-  }
-});
 
 // Connect to WebSocket
 connect();

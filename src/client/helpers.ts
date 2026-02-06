@@ -2,8 +2,9 @@
  * Helper functions
  */
 
+import type { GeoJSON } from "geojson";
 import { isDark } from "../../node_modules/theme-switcher/dist/theme-switcher.js";
-import { ViewRow } from "../client.ts";
+import type { DiffEntry, SendMessage } from "../../types.js";
 
 // TokyoNight color palettes for feature visualization
 const COLOR_PALETTE_LIGHT = [
@@ -38,47 +39,62 @@ function getFeatureColor(index: number): string {
 }
 
 /**
+ * Build a type description line for a GeoJSON object.
+ */
+function getGeoJSONTypeLine(gj: GeoJSON): string {
+  switch (gj.type) {
+    case "FeatureCollection":
+      return `${gj.type} (${gj.features.length})`;
+    case "GeometryCollection":
+      return `${gj.type} (${gj.geometries.length})`;
+    case "Feature": {
+      const id = gj.id ?? gj.properties?.id ?? null;
+      return (id !== null ? `<strong>${id}:</strong> ` : "") + `Feature (${gj.geometry.type})`;
+    }
+    default:
+      return `Geometry (${gj.type})`;
+  }
+}
+
+/**
  * Create a HTML string that captures the metadata for a shape.
  *
  * Includes <br> separated lines.
  */
-function createMetadataHTML(row: ViewRow): string {
-  // Build display lines array
+function createMetadataHTML(row: SendMessage): string {
   const displayLines: string[] = [];
 
-  // Line 1: Label (only if present)
   if (row.label) {
     displayLines.push(row.label);
   }
 
-  // Line 2: Type information with optional ID
-  const gj = row.geojson;
-  let typeLine: string;
+  displayLines.push(getGeoJSONTypeLine(row.geojson));
 
-  switch (gj.type) {
-    case "FeatureCollection":
-      typeLine = `${gj.type} (${gj.features.length})`;
-      break;
-    case "GeometryCollection":
-      typeLine = `${gj.type} (${gj.geometries.length})`;
-      break;
-    case "Feature":
-      const id = gj.id ?? gj.properties?.id ?? null;
-      typeLine = (id !== null ? `<strong>${id}:</strong> ` : "") + `Feature (${gj.geometry.type})`;
-      break;
-    // It's a geometry
-    default:
-      typeLine = `Geometry (${gj.type})`;
-  }
-
-  displayLines.push(typeLine);
-
-  // Line 3: Timestamp
   const ts = new Date(row.ts || Date.now()).toISOString();
   displayLines.push(`<small class="timestamp">${ts}</small>`);
 
-  // Join with line breaks
   return displayLines.join("<br>");
 }
 
-export { getFeatureColor, createMetadataHTML };
+/**
+ * Create a HTML string for a diff entry's metadata.
+ *
+ * Shows the diff label, labeled from/to type lines, and timestamp.
+ */
+function createDiffMetadataHTML(d: DiffEntry): string {
+  const displayLines: string[] = [];
+
+  if (d.label) {
+    displayLines.push(d.label);
+  }
+
+  displayLines.push(`from: ${getGeoJSONTypeLine(d.from.geojson)}`);
+  displayLines.push(`to: ${getGeoJSONTypeLine(d.to.geojson)}`);
+
+  const ts = new Date(d.ts).toISOString();
+  displayLines.push(`<small class="timestamp">${ts}</small>`);
+
+  return displayLines.join("<br>");
+}
+
+export { getFeatureColor, createMetadataHTML, createDiffMetadataHTML };
