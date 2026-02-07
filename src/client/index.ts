@@ -3,14 +3,14 @@
  * Connects to WebSocket relay and displays incoming debug messages
  */
 
-import type { DebugMessage, SendMessage } from "../types.js";
-import { uiThemeSwitcher, getTheme, setTheme } from "../node_modules/theme-switcher/dist/theme-switcher.js";
-import { MapView } from "./client/map.ts";
+import type { DebugMessage, SendMessage } from "../../types.js";
+import { uiThemeSwitcher, getTheme, setTheme } from "../../node_modules/theme-switcher/dist/theme-switcher.js";
+import { MapView } from "./map.ts";
 import { MapController } from "./client/map-controller.ts";
-import { Mode, changeMode } from "./client/mode-menu.ts";
-import { viewState } from "./client/view.ts";
-import { diffState } from "./client/diff.ts";
-import { initList } from "./client/list.ts";
+import { Mode, changeMode } from "./mode-menu.ts";
+import { viewState } from "./view.ts";
+import { diffState } from "./diff.ts";
+import { initList } from "./list.ts";
 
 declare global {
   interface Window {

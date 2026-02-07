@@ -17,6 +17,6 @@
     "sourceMap": true
   },
   "include": [
-    "src/client.ts"
+    "src/client/index.ts"
   ]
 }

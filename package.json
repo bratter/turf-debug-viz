@@ -7,11 +7,15 @@
   "type": "module",
   "main": "index.ts",
   "scripts": {
-    "copy-assets": "cp src/style.css node_modules/@turf/turf/turf.min.js node_modules/pico/dist/dashboard-blue.css{,.map} node_modules/theme-switcher/dist/theme-switcher-pico.css{,.map} public/assets/",
-    "build:client": "pnpm copy-assets && esbuild src/client.ts --bundle --sourcemap --outfile=public/assets/client.js --tsconfig=tsconfig.client.json",
-    "watch:client": "pnpm copy-assets && esbuild src/client.ts --watch --bundle --sourcemap --outfile=public/assets/client.js --tsconfig=tsconfig.client.json",
-    "dev": "npm run build:client && npm start",
+    "build": "pnpm build:client && pnpm build:assets",
+    "build:client": "esbuild src/client/index.ts --bundle --sourcemap --outfile=public/assets/client.js --tsconfig=tsconfig.client.json",
+    "build:assets": "cpx 'src/client/style.css' public/assets && cpx 'vendor/*' public/assets && cpx 'node_modules/@turf/turf/turf.min.js' public/assets/",
+    "watch": "concurrently -n client,assets,server -c magenta,cyan,yellow \"pnpm watch:client\" \"pnpm watch:assets\" \"pnpm watch:server\"",
+    "watch:client": "esbuild src/client/index.ts --watch --bundle --sourcemap --outfile=public/assets/client.js --tsconfig=tsconfig.client.json",
+    "watch:assets": "concurrently \"cpx 'src/client/style.css' public/assets --watch --verbose\" \"cpx 'vendor/*' public/assets --watch --verbose\"",
+    "watch:server": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
+    "format": "prettier --write src/**/*",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "devDependencies": {
@@ -21,7 +25,10 @@
     "@types/mapbox-gl": "^3.4.1",
     "@types/node": "^25.0.3",
     "@types/ws": "^8.18.1",
+    "concurrently": "^9.2.1",
+    "cpx2": "^8.0.0",
     "esbuild": "^0.27.2",
+    "prettier": "^3.8.1",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"
   },
@@ -29,8 +36,6 @@
     "@turf/turf": "^7.3.2",
     "d3-selection": "^3.0.0",
     "deasync": "^0.1.31",
-    "pico": "link:../web-toolkit/pico",
-    "theme-switcher": "link:../web-toolkit/components/theme-switcher",
     "ws": "^8.19.0"
   }
 }
