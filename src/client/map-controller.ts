@@ -148,7 +148,9 @@ class MapController {
     }
 
     const diff = diffState.getActiveDiff();
-    return diff ? (row.index === diff.from.index || row.index === diff.to.index) : false;
+    return diff
+      ? row.index === diff.from.index || row.index === diff.to.index
+      : false;
   }
 }
 

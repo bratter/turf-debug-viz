@@ -10,7 +10,7 @@ const STORAGE_KEY_AUTOFIT = "turf-debug-autofit";
 
 export enum Mode {
   VIEW = "view",
-  DIFF = "diff"
+  DIFF = "diff",
 }
 
 let currentMode: Mode = Mode.VIEW;
@@ -23,9 +23,11 @@ export function changeMode(mode: Mode) {
   if (mode === currentMode) return;
   currentMode = mode;
 
-  window.dispatchEvent(new CustomEvent("modechange", {
-    detail: mode,
-  }));
+  window.dispatchEvent(
+    new CustomEvent("modechange", {
+      detail: mode,
+    }),
+  );
 }
 
 // TODO: Pull this from the checkbox when not in this file?
@@ -79,7 +81,10 @@ window.addEventListener("modechange", (e) => {
  * Use with `selection.call(appendText, "text")`, but this only appends the
  * static string to the first node, so has limited general purpose use.
  */
-function appendText<E extends Element>(sel: Selection<E, any, any, any>, text: string) {
+function appendText<E extends Element>(
+  sel: Selection<E, any, any, any>,
+  text: string,
+) {
   sel.node()?.append(text);
 }
 

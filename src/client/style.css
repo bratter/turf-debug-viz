@@ -43,7 +43,6 @@ header.container-fluid h1 {
   margin-left: auto;
 }
 
-
 #main-container {
   display: flex;
   flex: 1;
@@ -84,11 +83,11 @@ nav#mode-menu {
   border-bottom: var(--primary-border) solid var(--border-width);
 }
 
-nav#mode-menu>ul:first-child {
+nav#mode-menu > ul:first-child {
   margin: 0 auto 0 calc(var(--spacing) * -1);
 }
 
-nav#mode-menu>ul:first-child>li:first-child {
+nav#mode-menu > ul:first-child > li:first-child {
   padding-left: var(--spacing);
   position: relative;
   min-width: 4rem;
@@ -96,7 +95,7 @@ nav#mode-menu>ul:first-child>li:first-child {
   background-color: var(--primary);
 }
 
-nav#mode-menu>ul:first-child>li:first-child::after {
+nav#mode-menu > ul:first-child > li:first-child::after {
   content: "";
   position: absolute;
   left: 100%;
@@ -104,24 +103,30 @@ nav#mode-menu>ul:first-child>li:first-child::after {
   transform: translateY(-50%);
   width: 0;
   height: 0;
-  border-top: calc(var(--line-height) * 0.5rem + var(--nav-element-spacing-vertical)) solid transparent;
-  border-bottom: calc(var(--line-height) * 0.5rem + var(--nav-element-spacing-vertical)) solid transparent;
+  border-top: calc(
+      var(--line-height) * 0.5rem + var(--nav-element-spacing-vertical)
+    )
+    solid transparent;
+  border-bottom: calc(
+      var(--line-height) * 0.5rem + var(--nav-element-spacing-vertical)
+    )
+    solid transparent;
   border-left: 1rem solid var(--primary);
 }
 
-nav#mode-menu[data-mode="view"]>ul:first-child>li:first-child {
+nav#mode-menu[data-mode="view"] > ul:first-child > li:first-child {
   background-color: var(--palette-green);
 }
 
-nav#mode-menu[data-mode="view"]>ul:first-child>li:first-child::after {
+nav#mode-menu[data-mode="view"] > ul:first-child > li:first-child::after {
   border-left-color: var(--palette-green);
 }
 
-nav#mode-menu[data-mode="diff"]>ul:first-child>li:first-child {
+nav#mode-menu[data-mode="diff"] > ul:first-child > li:first-child {
   background-color: var(--palette-purple);
 }
 
-nav#mode-menu[data-mode="diff"]>ul:first-child>li:first-child::after {
+nav#mode-menu[data-mode="diff"] > ul:first-child > li:first-child::after {
   border-left-color: var(--palette-purple);
 }
 
@@ -157,7 +162,7 @@ nav#mode-menu[data-mode="diff"]>ul:first-child>li:first-child::after {
 }
 
 .row::before {
-  content: '';
+  content: "";
   position: absolute;
   left: 0;
   top: 0;
@@ -167,7 +172,11 @@ nav#mode-menu[data-mode="diff"]>ul:first-child>li:first-child::after {
 }
 
 .row.diff-row::before {
-  background: linear-gradient(to bottom, var(--swatch-from) 50%, var(--swatch-to) 50%);
+  background: linear-gradient(
+    to bottom,
+    var(--swatch-from) 50%,
+    var(--swatch-to) 50%
+  );
 }
 
 .row.hidden {
@@ -208,7 +217,6 @@ nav#mode-menu[data-mode="diff"]>ul:first-child>li:first-child::after {
 .row-buttons button {
   padding: var(--nav-link-spacing-vertical) var(--nav-link-spacing-horizontal);
 }
-
 
 /* ========================================
    Map Popup Styling

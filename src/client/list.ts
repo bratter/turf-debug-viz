@@ -7,7 +7,11 @@
 
 import { select, type Selection } from "d3-selection";
 import type { ViewRow, DiffEntry } from "../../types.js";
-import { getFeatureColor, createMetadataHTML, createDiffMetadataHTML } from "./helpers.ts";
+import {
+  getFeatureColor,
+  createMetadataHTML,
+  createDiffMetadataHTML,
+} from "./helpers.ts";
 import { viewState } from "./view.ts";
 import { diffState } from "./diff.ts";
 import { Mode, getCurrentMode } from "./mode-menu.ts";
@@ -46,7 +50,9 @@ export function initList() {
 // View Mode Rendering
 // ========================================
 
-function renderViewList(log: Selection<HTMLUListElement, unknown, HTMLElement, unknown>) {
+function renderViewList(
+  log: Selection<HTMLUListElement, unknown, HTMLElement, unknown>,
+) {
   const rows = [...viewState.getRows()].reverse();
 
   log.selectAll(".row.diff-row").remove();
@@ -55,14 +61,17 @@ function renderViewList(log: Selection<HTMLUListElement, unknown, HTMLElement, u
     .selectAll<HTMLLIElement, ViewRow>(".row:not(.diff-row)")
     .data(rows, (d) => d.index)
     .join((enter) => {
-      const row = enter.append("li")
+      const row = enter
+        .append("li")
         .classed("row", true)
         .on("click", (_, d) => {
           console.log(d);
         });
 
       row.append("span").html(createMetadataHTML);
-      row.append("div").attr("class", "row-buttons")
+      row
+        .append("div")
+        .attr("class", "row-buttons")
         .call(addButton, "visibility-btn", "\u{1F441}\uFE0F", (d: ViewRow) => {
           const r = viewState.getRow(d.index);
           if (r) viewState.setHidden(d.index, !r.isHidden);
@@ -88,7 +97,9 @@ function renderViewList(log: Selection<HTMLUListElement, unknown, HTMLElement, u
 // Diff Mode Rendering
 // ========================================
 
-function renderDiffList(log: Selection<HTMLUListElement, unknown, HTMLElement, unknown>): void {
+function renderDiffList(
+  log: Selection<HTMLUListElement, unknown, HTMLElement, unknown>,
+): void {
   const diffs = [...diffState.getDiffs()].reverse();
 
   log.selectAll(".row:not(.diff-row)").remove();
@@ -97,7 +108,8 @@ function renderDiffList(log: Selection<HTMLUListElement, unknown, HTMLElement, u
     .selectAll<HTMLLIElement, DiffEntry>(".row.diff-row")
     .data(diffs, (d) => d.id)
     .join((enter) => {
-      const row = enter.append("li")
+      const row = enter
+        .append("li")
         .classed("row", true)
         .classed("diff-row", true)
         .on("click", (_, d) => {
@@ -105,7 +117,9 @@ function renderDiffList(log: Selection<HTMLUListElement, unknown, HTMLElement, u
         });
 
       row.append("span").html(createDiffMetadataHTML);
-      row.append("div").attr("class", "row-buttons")
+      row
+        .append("div")
+        .attr("class", "row-buttons")
         .call(addButton, "zoom-btn", "\u{1F50D}", (d: DiffEntry) => {
           window.map?.scheduleFit([d.from.index, d.to.index], true);
         })
@@ -127,7 +141,8 @@ function addButton<D>(
   icon: string,
   action: (d: D) => void,
 ) {
-  container.append("button")
+  container
+    .append("button")
     .attr("class", cls)
     .text(icon)
     .on("click", (e: MouseEvent, d: D) => {

@@ -49,7 +49,10 @@ function getGeoJSONTypeLine(gj: GeoJSON): string {
       return `${gj.type} (${gj.geometries.length})`;
     case "Feature": {
       const id = gj.id ?? gj.properties?.id ?? null;
-      return (id !== null ? `<strong>${id}:</strong> ` : "") + `Feature (${gj.geometry.type})`;
+      return (
+        (id !== null ? `<strong>${id}:</strong> ` : "") +
+        `Feature (${gj.geometry.type})`
+      );
     }
     default:
       return `Geometry (${gj.type})`;

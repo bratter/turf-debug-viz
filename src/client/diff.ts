@@ -31,22 +31,22 @@ interface DiffState {
   addEventListener<K extends keyof DiffStateEventMap>(
     type: K,
     listener: (ev: DiffStateEventMap[K]) => void,
-    options?: boolean | AddEventListenerOptions
+    options?: boolean | AddEventListenerOptions,
   ): void;
   addEventListener(
     type: string,
     listener: EventListenerOrEventListenerObject | null,
-    options?: boolean | AddEventListenerOptions
+    options?: boolean | AddEventListenerOptions,
   ): void;
   removeEventListener<K extends keyof DiffStateEventMap>(
     type: K,
     listener: (ev: DiffStateEventMap[K]) => void,
-    options?: boolean | EventListenerOptions
+    options?: boolean | EventListenerOptions,
   ): void;
   removeEventListener(
     type: string,
     listener: EventListenerOrEventListenerObject | null,
-    options?: boolean | EventListenerOptions
+    options?: boolean | EventListenerOptions,
   ): void;
 }
 
@@ -161,7 +161,9 @@ export function buildDiffMenu(): HTMLElement[] {
     .append("li")
     .append("button")
     .text("New diff")
-    .on("click", () => console.log("diff - new diff (needs shape selection UI)"));
+    .on("click", () =>
+      console.log("diff - new diff (needs shape selection UI)"),
+    );
 
   return [left.node()!, right.node()!];
 }

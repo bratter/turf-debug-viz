@@ -20,8 +20,26 @@ const MAP_FIT_OPTIONS = {
   maxZoom: 15,
   duration: 500,
 } as const;
-const CIRCLE_FILTER_SHOW_VERTICIES = ["in", ["geometry-type"], ["literal", ["Point", "MultiPoint", "LineString", "MultiLineString", "Polygon", "MultiPolygon"]]];
-const CIRCLE_FILTER_HIDE_VERTICIES = ["in", ["geometry-type"], ["literal", ["Point", "MultiPoint"]]];
+const CIRCLE_FILTER_SHOW_VERTICIES = [
+  "in",
+  ["geometry-type"],
+  [
+    "literal",
+    [
+      "Point",
+      "MultiPoint",
+      "LineString",
+      "MultiLineString",
+      "Polygon",
+      "MultiPolygon",
+    ],
+  ],
+];
+const CIRCLE_FILTER_HIDE_VERTICIES = [
+  "in",
+  ["geometry-type"],
+  ["literal", ["Point", "MultiPoint"]],
+];
 
 // TODO: Rename
 function getMapStyleUrl(): string {
@@ -35,10 +53,13 @@ function getMapStyleUrl(): string {
 // GeoJSON normalization
 function normalizeToFeatures(geojson: GeoJSON): Feature | FeatureCollection {
   switch (geojson.type) {
-    case "Feature": return geojson;
-    case "FeatureCollection": return geojson;
+    case "Feature":
+      return geojson;
+    case "FeatureCollection":
+      return geojson;
     // It's a geometry
-    default: return turf.feature(geojson);
+    default:
+      return turf.feature(geojson);
   }
 }
 
@@ -55,7 +76,11 @@ class MapView {
   private fitScheduled = false;
   private fitTargetIndices: number[] | null = null;
 
-  constructor(container: HTMLElement | string, getRenderData: () => readonly ViewRow[], showVerticies = false) {
+  constructor(
+    container: HTMLElement | string,
+    getRenderData: () => readonly ViewRow[],
+    showVerticies = false,
+  ) {
     this.getRenderData = getRenderData;
     this.showVerticesInternal = showVerticies;
 
@@ -97,9 +122,21 @@ class MapView {
         rows.forEach((row) => {
           const color = getFeatureColor(row.index);
 
-          this.map.setPaintProperty(`layer-${row.index}-fill`, "fill-color", color);
-          this.map.setPaintProperty(`layer-${row.index}-line`, "line-color", color);
-          this.map.setPaintProperty(`layer-${row.index}-circle`, "circle-color", color);
+          this.map.setPaintProperty(
+            `layer-${row.index}-fill`,
+            "fill-color",
+            color,
+          );
+          this.map.setPaintProperty(
+            `layer-${row.index}-line`,
+            "line-color",
+            color,
+          );
+          this.map.setPaintProperty(
+            `layer-${row.index}-circle`,
+            "circle-color",
+            color,
+          );
         });
       }
     });
@@ -146,7 +183,11 @@ class MapView {
           "fill-color": color,
           "fill-opacity": 0.3,
         },
-        filter: ["in", ["geometry-type"], ["literal", ["Polygon", "MultiPolygon"]]],
+        filter: [
+          "in",
+          ["geometry-type"],
+          ["literal", ["Polygon", "MultiPolygon"]],
+        ],
       });
       this.addPopupHandler(fillLayerId, metadataHTML);
 
@@ -159,7 +200,14 @@ class MapView {
           "line-color": color,
           "line-width": 2,
         },
-        filter: ["in", ["geometry-type"], ["literal", ["LineString", "MultiLineString", "Polygon", "MultiPolygon"]]],
+        filter: [
+          "in",
+          ["geometry-type"],
+          [
+            "literal",
+            ["LineString", "MultiLineString", "Polygon", "MultiPolygon"],
+          ],
+        ],
       });
       this.map.addLayer({
         id: `${lineLayerId}-hitzone`,
@@ -169,7 +217,11 @@ class MapView {
           "line-color": "rgba(0, 0, 0, 0)",
           "line-width": 20,
         },
-        filter: ["in", ["geometry-type"], ["literal", ["LineString", "MultiLineString"]]],
+        filter: [
+          "in",
+          ["geometry-type"],
+          ["literal", ["LineString", "MultiLineString"]],
+        ],
       });
       this.addPopupHandler(`${lineLayerId}-hitzone`, metadataHTML);
 
@@ -195,7 +247,6 @@ class MapView {
         filter: ["in", ["geometry-type"], ["literal", ["Point", "MultiPoint"]]],
       });
       this.addPopupHandler(`${pointLayerId}-hitzone`, metadataHTML);
-
     } catch (err) {
       console.error(`Failed to add GeoJSON to map for row ${row.index}:`, err);
     }
@@ -238,7 +289,11 @@ class MapView {
       }
 
       // Reset to world view
-      this.map.flyTo({ center: [0, 0], zoom: 1, duration: MAP_FIT_OPTIONS.duration });
+      this.map.flyTo({
+        center: [0, 0],
+        zoom: 1,
+        duration: MAP_FIT_OPTIONS.duration,
+      });
     } catch (err) {
       console.error("Failed to clear map:", err);
     }
@@ -253,16 +308,16 @@ class MapView {
     if (Array.isArray(indicesOrIgnoreHidden)) {
       // Specific indices provided
       const indices = indicesOrIgnoreHidden;
-      rows = this.getRenderData().filter(r => indices.includes(r.index));
+      rows = this.getRenderData().filter((r) => indices.includes(r.index));
       if (ignoreHidden) {
-        rows = rows.filter(r => !r.isHidden);
+        rows = rows.filter((r) => !r.isHidden);
       }
     } else {
       // Fit all rows
       const shouldIgnoreHidden = indicesOrIgnoreHidden ?? true;
       rows = this.getRenderData();
       if (shouldIgnoreHidden) {
-        rows = rows.filter(r => !r.isHidden);
+        rows = rows.filter((r) => !r.isHidden);
       }
     }
 
@@ -283,12 +338,17 @@ class MapView {
   scheduleFit(ignoreHidden?: boolean): void;
   scheduleFit(indices: number[], ignoreHidden?: boolean): void;
   /** Schedule a fit that coalesces multiple calls via requestAnimationFrame */
-  scheduleFit(indicesOrIgnoreHidden?: number[] | boolean, ignoreHidden?: boolean): void {
+  scheduleFit(
+    indicesOrIgnoreHidden?: number[] | boolean,
+    ignoreHidden?: boolean,
+  ): void {
     if (this.fitScheduled) return;
     this.fitScheduled = true;
 
     // Store parameters for deferred execution
-    this.fitTargetIndices = Array.isArray(indicesOrIgnoreHidden) ? indicesOrIgnoreHidden : null;
+    this.fitTargetIndices = Array.isArray(indicesOrIgnoreHidden)
+      ? indicesOrIgnoreHidden
+      : null;
     const storedIgnoreHidden = Array.isArray(indicesOrIgnoreHidden)
       ? (ignoreHidden ?? true)
       : (indicesOrIgnoreHidden ?? true);
@@ -327,27 +387,46 @@ class MapView {
     try {
       const visibility = visible ? "visible" : "none";
 
-      this.map.setLayoutProperty(`layer-${index}-fill`, "visibility", visibility);
-      this.map.setLayoutProperty(`layer-${index}-line`, "visibility", visibility);
-      this.map.setLayoutProperty(`layer-${index}-line-hitzone`, "visibility", visibility);
-      this.map.setLayoutProperty(`layer-${index}-circle`, "visibility", visibility);
-      this.map.setLayoutProperty(`layer-${index}-circle-hitzone`, "visibility", visibility);
+      this.map.setLayoutProperty(
+        `layer-${index}-fill`,
+        "visibility",
+        visibility,
+      );
+      this.map.setLayoutProperty(
+        `layer-${index}-line`,
+        "visibility",
+        visibility,
+      );
+      this.map.setLayoutProperty(
+        `layer-${index}-line-hitzone`,
+        "visibility",
+        visibility,
+      );
+      this.map.setLayoutProperty(
+        `layer-${index}-circle`,
+        "visibility",
+        visibility,
+      );
+      this.map.setLayoutProperty(
+        `layer-${index}-circle-hitzone`,
+        "visibility",
+        visibility,
+      );
     } catch (err) {
       console.error(`Failed to set visibility for row ${index}:`, err);
     }
   }
 
   private getCircleFilter() {
-    return this.showVertices ? CIRCLE_FILTER_SHOW_VERTICIES : CIRCLE_FILTER_HIDE_VERTICIES;
+    return this.showVertices
+      ? CIRCLE_FILTER_SHOW_VERTICIES
+      : CIRCLE_FILTER_HIDE_VERTICIES;
   }
 
   // Add a popup handler for the layer with the passed id
   private addPopupHandler(layerId: string, metadataHTML: string): void {
     this.map.on("mousemove", layerId, (e) => {
-      this.popup
-        .setLngLat(e.lngLat)
-        .setHTML(metadataHTML)
-        .addTo(this.map);
+      this.popup.setLngLat(e.lngLat).setHTML(metadataHTML).addTo(this.map);
     });
 
     // Mouse leave: hide popup

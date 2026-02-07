@@ -4,7 +4,11 @@
  */
 
 import type { DebugMessage, SendMessage } from "../../types.js";
-import { uiThemeSwitcher, getTheme, setTheme } from "../../node_modules/theme-switcher/dist/theme-switcher.js";
+import {
+  uiThemeSwitcher,
+  getTheme,
+  setTheme,
+} from "../../node_modules/theme-switcher/dist/theme-switcher.js";
 import { MapView } from "./map.ts";
 import { MapController } from "./client/map-controller.ts";
 import { Mode, changeMode } from "./mode-menu.ts";
@@ -27,7 +31,9 @@ declare global {
 // ========================================
 
 // Set up the theme switcher and initialize
-const themeSwitcherParent = document.getElementById("theme-switcher") as HTMLLIElement;
+const themeSwitcherParent = document.getElementById(
+  "theme-switcher",
+) as HTMLLIElement;
 themeSwitcherParent.append(uiThemeSwitcher());
 setTheme(getTheme());
 
@@ -44,11 +50,13 @@ const mapView = document.getElementById("map-view") as HTMLElement;
 const geojsonView = document.getElementById("geojson-view") as HTMLElement;
 const sidebar = document.getElementById("sidebar") as HTMLDivElement;
 
-let panelState = localStorage.getItem(STORAGE_KEY_PANEL_MODE) as PanelState | null || "both";
+let panelState =
+  (localStorage.getItem(STORAGE_KEY_PANEL_MODE) as PanelState | null) || "both";
 let sidebarState = localStorage.getItem(STORAGE_KEY_SIDEBAR) !== "false";
 
 function cyclePanels() {
-  panelState = panelState === "both" ? "map" : panelState === "map" ? "json" : "both";
+  panelState =
+    panelState === "both" ? "map" : panelState === "map" ? "json" : "both";
   localStorage.setItem(STORAGE_KEY_PANEL_MODE, panelState);
 
   mapView.classList.toggle("collapsed", panelState === "json");
@@ -65,9 +73,9 @@ function toggleSidebar() {
 }
 
 // Sidebar toggle
-(document
-  .getElementById("sidebar-toggle") as HTMLButtonElement)
-  .addEventListener("click", toggleSidebar);
+(
+  document.getElementById("sidebar-toggle") as HTMLButtonElement
+).addEventListener("click", toggleSidebar);
 
 // Initialize the sidebar list renderer (subscribes to state and mode changes)
 initList();
@@ -76,7 +84,10 @@ initList();
 viewState.addEventListener("change", (e) => {
   if (e.detail.type === "delete") {
     for (const diff of diffState.getDiffs()) {
-      if (diff.from.index === e.detail.index || diff.to.index === e.detail.index) {
+      if (
+        diff.from.index === e.detail.index ||
+        diff.to.index === e.detail.index
+      ) {
         diffState.deleteDiff(diff.id);
       }
     }
@@ -105,7 +116,7 @@ const keyMap = new Map<string, () => void>([
 ]);
 
 window.addEventListener("keyup", (e) => {
-  const keyWithMod = `${e.ctrlKey ? 'Ctrl+' : ''}${e.key}`;
+  const keyWithMod = `${e.ctrlKey ? "Ctrl+" : ""}${e.key}`;
   const handler = keyMap.get(keyWithMod);
 
   if (handler) {
