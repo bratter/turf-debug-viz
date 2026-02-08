@@ -8,6 +8,7 @@
 import type { DiffEntry, ViewRow } from "../../types.js";
 import { create } from "d3-selection";
 import { viewState } from "./view.ts";
+import { Mode, changeMode } from "./mode-menu.ts";
 
 // ========================================
 // Event Types
@@ -221,9 +222,11 @@ export function buildDiffMenu(): HTMLElement[] {
   const left = create("ul");
   const right = create("ul");
 
-  // The mode indicator (always shows "diff")
-  left.append("li").text("diff");
-  // Selection progress shown in a separate li
+  // The mode indicator (click to switch)
+  left
+    .append("li")
+    .text("diff")
+    .on("click", () => changeMode(Mode.VIEW));
   const statusLi = left.append("li");
 
   // Normal state: "New diff" button
@@ -233,7 +236,14 @@ export function buildDiffMenu(): HTMLElement[] {
     .text("New diff")
     .on("click", () => diffState.startSelection());
 
-  // Selecting state: Cancel + Create buttons
+  // Selecting state: label input, Cancel, Create
+  const labelLi = right.append("li");
+  const labelInput = labelLi
+    .append("input")
+    .attr("type", "text")
+    .attr("placeholder", "Label (optional)")
+    .on("keyup", (e: KeyboardEvent) => e.stopPropagation());
+
   const cancelLi = right.append("li");
   cancelLi
     .append("button")
@@ -245,10 +255,8 @@ export function buildDiffMenu(): HTMLElement[] {
     .append("button")
     .text("Create")
     .on("click", () => {
-      const input = document.getElementById(
-        "diff-label-input",
-      ) as HTMLInputElement | null;
-      const label = input?.value.trim() || undefined;
+      const label =
+        (labelInput.node() as HTMLInputElement).value.trim() || undefined;
       diffState.confirmSelection(label);
     });
 
@@ -257,12 +265,12 @@ export function buildDiffMenu(): HTMLElement[] {
 
     if (selecting) {
       newDiffLi.style("display", "none");
+      labelLi.style("display", null);
       cancelLi.style("display", null);
       createLi.style("display", null);
 
       const ready =
-        diffState.selectionFrom() !== null &&
-        diffState.selectionTo() !== null;
+        diffState.selectionFrom() !== null && diffState.selectionTo() !== null;
       createBtn.property("disabled", !ready);
 
       if (diffState.selectionFrom() === null) {
@@ -274,8 +282,10 @@ export function buildDiffMenu(): HTMLElement[] {
       }
     } else {
       newDiffLi.style("display", null);
+      labelLi.style("display", "none");
       cancelLi.style("display", "none");
       createLi.style("display", "none");
+      labelInput.property("value", "");
       statusLi.text("");
     }
   }

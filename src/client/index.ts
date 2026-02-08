@@ -91,6 +91,8 @@ viewState.addEventListener("change", (e) => {
         diffState.deleteDiff(diff.id);
       }
     }
+  } else if (e.detail.type === "clear") {
+    diffState.clear();
   }
 });
 

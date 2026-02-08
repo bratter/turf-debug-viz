@@ -35,6 +35,11 @@ class MapController {
             this.map.setLayerVisibility(detail.row.index, !detail.row.isHidden);
           }
           break;
+        case "activate":
+          if (getCurrentMode() === Mode.VIEW && getAutoFit() && detail.row) {
+            this.map.scheduleFit([detail.row.index]);
+          }
+          break;
         case "clear":
           this.map.clearMap(detail.rows);
           break;

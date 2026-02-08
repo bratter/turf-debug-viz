@@ -3,7 +3,7 @@
  */
 
 import { Selection, create } from "d3-selection";
-import { buildDiffMenu } from "./diff";
+import { buildDiffMenu, diffState } from "./diff";
 import { buildViewMenu } from "./view";
 
 const STORAGE_KEY_AUTOFIT = "turf-debug-autofit";
@@ -115,7 +115,15 @@ function makeMapControls(): HTMLElement {
     .on("change", function () {
       const checked = this.checked;
       setAutoFit(checked);
-      if (checked) window.map?.fitAll();
+      if (checked) {
+        if (currentMode === Mode.DIFF) {
+          const diff = diffState.getActiveDiff();
+          if (diff)
+            window.map?.scheduleFit([diff.from.index, diff.to.index], false);
+        } else {
+          window.map?.fitAll();
+        }
+      }
     });
   autofitLabel.call(appendText, "Autofit");
 
@@ -123,7 +131,15 @@ function makeMapControls(): HTMLElement {
     .append("li")
     .append("button")
     .text("Zoom to fit")
-    .on("click", () => window.map?.fitAll());
+    .on("click", () => {
+      if (currentMode === Mode.DIFF) {
+        const diff = diffState.getActiveDiff();
+        if (diff)
+          window.map?.scheduleFit([diff.from.index, diff.to.index], false);
+      } else {
+        window.map?.fitAll();
+      }
+    });
 
   return controls.node() as HTMLElement;
 }

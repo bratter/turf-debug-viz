@@ -7,6 +7,7 @@
 
 import type { SendMessage, ViewRow } from "../../types.js";
 import { create } from "d3-selection";
+import { Mode, changeMode } from "./mode-menu.ts";
 
 // ========================================
 // Event Types
@@ -16,6 +17,7 @@ export type ViewStateChangeDetail =
   | { type: "add"; row: ViewRow }
   | { type: "delete"; index: number }
   | { type: "update"; row: ViewRow }
+  | { type: "activate"; row: ViewRow | null }
   | { type: "clear"; rows: ViewRow[] };
 
 interface ViewStateEventMap {
@@ -56,6 +58,7 @@ interface ViewState {
 class ViewState extends EventTarget {
   private rows: ViewRow[] = [];
   private nextIndex = 0;
+  private activeRowIndex: number | null = null;
 
   /**
    * Get all rows (readonly to prevent external mutation)
@@ -69,6 +72,31 @@ class ViewState extends EventTarget {
    */
   getRow(index: number): ViewRow | undefined {
     return this.rows.find((r) => r.index === index);
+  }
+
+  /**
+   * Get the currently active row, or null if none
+   */
+  getActiveRow(): ViewRow | null {
+    if (this.activeRowIndex === null) return null;
+    return this.getRow(this.activeRowIndex) ?? null;
+  }
+
+  /**
+   * Set the active row by index, or null to clear
+   */
+  setActiveRow(index: number | null): void {
+    if (index === null) {
+      this.activeRowIndex = null;
+      return this.emit({ type: "activate", row: null });
+    }
+    if (this.activeRowIndex === index) return;
+
+    const row = this.getRow(index);
+    if (!row) return;
+
+    this.activeRowIndex = index;
+    this.emit({ type: "activate", row });
   }
 
   /**
@@ -96,6 +124,10 @@ class ViewState extends EventTarget {
 
     this.rows.splice(arrayIndex, 1);
     this.emit({ type: "delete", index });
+
+    if (this.activeRowIndex === index) {
+      this.setActiveRow(null);
+    }
   }
 
   /**
@@ -127,6 +159,7 @@ class ViewState extends EventTarget {
     const rows = this.rows;
     this.rows = [];
     this.nextIndex = 0;
+    this.activeRowIndex = null;
     this.emit({ type: "clear", rows });
   }
 
@@ -149,8 +182,11 @@ export function buildViewMenu(): HTMLElement[] {
   const left = create("ul");
   const right = create("ul");
 
-  // The mode indicator
-  left.append("li").text("view");
+  // The mode indicator (click to switch)
+  left
+    .append("li")
+    .text("view")
+    .on("click", () => changeMode(Mode.DIFF));
 
   // The clear-all button
   right
