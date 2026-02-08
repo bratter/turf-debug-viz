@@ -7,6 +7,7 @@
 
 import type { DiffEntry, ViewRow } from "../../types.js";
 import { create } from "d3-selection";
+import { viewState } from "./view.ts";
 
 // ========================================
 // Event Types
@@ -16,7 +17,8 @@ export type DiffStateChangeDetail =
   | { type: "add"; diff: DiffEntry }
   | { type: "delete"; id: number }
   | { type: "activate"; diff: DiffEntry | null }
-  | { type: "clear" };
+  | { type: "clear" }
+  | { type: "selection" };
 
 interface DiffStateEventMap {
   change: CustomEvent<DiffStateChangeDetail>;
@@ -57,6 +59,11 @@ class DiffState extends EventTarget {
   private diffs: DiffEntry[] = [];
   private nextId = 0;
   private activeDiffId: number | null = null;
+
+  // Selection state for "new diff" workflow
+  private selectionActive = false;
+  private selectedFrom: number | null = null;
+  private selectedTo: number | null = null;
 
   /** Whether to auto-activate new diffs when added */
   autoActivate = true;
@@ -135,6 +142,66 @@ class DiffState extends EventTarget {
     this.emit({ type: "clear" });
   }
 
+  // ========================================
+  // Selection (new diff workflow)
+  // ========================================
+
+  isSelecting(): boolean {
+    return this.selectionActive;
+  }
+
+  selectionFrom(): number | null {
+    return this.selectedFrom;
+  }
+
+  selectionTo(): number | null {
+    return this.selectedTo;
+  }
+
+  /** Pick a row index for from/to. Toggle-deselects if already selected. */
+  select(index: number): void {
+    if (!this.selectionActive) return;
+
+    if (this.selectedFrom === index) {
+      this.selectedFrom = null;
+    } else if (this.selectedTo === index) {
+      this.selectedTo = null;
+    } else if (this.selectedFrom === null) {
+      this.selectedFrom = index;
+    } else if (this.selectedTo === null) {
+      this.selectedTo = index;
+    } else {
+      this.selectedTo = index;
+    }
+    this.emit({ type: "selection" });
+  }
+
+  startSelection(): void {
+    this.selectionActive = true;
+    this.selectedFrom = null;
+    this.selectedTo = null;
+    this.emit({ type: "selection" });
+  }
+
+  cancelSelection(): void {
+    this.selectionActive = false;
+    this.selectedFrom = null;
+    this.selectedTo = null;
+    this.emit({ type: "selection" });
+  }
+
+  /** Confirm selection: create a diff from the selected rows and exit selection. */
+  confirmSelection(label?: string): void {
+    if (this.selectedFrom === null || this.selectedTo === null) return;
+
+    const fromRow = viewState.getRow(this.selectedFrom);
+    const toRow = viewState.getRow(this.selectedTo);
+    if (!fromRow || !toRow) return;
+
+    this.addDiff(fromRow, toRow, label);
+    this.cancelSelection();
+  }
+
   private emit(detail: DiffStateChangeDetail): void {
     this.dispatchEvent(new CustomEvent("change", { detail }));
   }
@@ -154,16 +221,74 @@ export function buildDiffMenu(): HTMLElement[] {
   const left = create("ul");
   const right = create("ul");
 
-  // The mode indicator
+  // The mode indicator (always shows "diff")
   left.append("li").text("diff");
+  // Selection progress shown in a separate li
+  const statusLi = left.append("li");
 
-  right
-    .append("li")
+  // Normal state: "New diff" button
+  const newDiffLi = right.append("li");
+  newDiffLi
     .append("button")
     .text("New diff")
-    .on("click", () =>
-      console.log("diff - new diff (needs shape selection UI)"),
-    );
+    .on("click", () => diffState.startSelection());
+
+  // Selecting state: Cancel + Create buttons
+  const cancelLi = right.append("li");
+  cancelLi
+    .append("button")
+    .text("Cancel")
+    .on("click", () => diffState.cancelSelection());
+
+  const createLi = right.append("li");
+  const createBtn = createLi
+    .append("button")
+    .text("Create")
+    .on("click", () => {
+      const input = document.getElementById(
+        "diff-label-input",
+      ) as HTMLInputElement | null;
+      const label = input?.value.trim() || undefined;
+      diffState.confirmSelection(label);
+    });
+
+  function updateMenu() {
+    const selecting = diffState.isSelecting();
+
+    if (selecting) {
+      newDiffLi.style("display", "none");
+      cancelLi.style("display", null);
+      createLi.style("display", null);
+
+      const ready =
+        diffState.selectionFrom() !== null &&
+        diffState.selectionTo() !== null;
+      createBtn.property("disabled", !ready);
+
+      if (diffState.selectionFrom() === null) {
+        statusLi.text("new diff: select from");
+      } else if (diffState.selectionTo() === null) {
+        statusLi.text("new diff: select to");
+      } else {
+        statusLi.text("new diff: ready to confirm");
+      }
+    } else {
+      newDiffLi.style("display", null);
+      cancelLi.style("display", "none");
+      createLi.style("display", "none");
+      statusLi.text("");
+    }
+  }
+
+  // Initial state
+  updateMenu();
+
+  diffState.addEventListener("change", (e) => {
+    if (e.detail.type === "selection") updateMenu();
+  });
+  window.addEventListener("modechange", () => {
+    if (diffState.isSelecting()) diffState.cancelSelection();
+  });
 
   return [left.node()!, right.node()!];
 }

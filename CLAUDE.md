@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Build
+
+The watch command (`npm run watch`) is always running in a separate terminal. You never need to run build commands — the watcher handles compilation automatically.
+
 ## Do Not Edit
 
 - **`vendor/`** - Vendored CSS from external libraries (Pico CSS theme, theme switcher). Do not modify these files.

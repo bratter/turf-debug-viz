@@ -26,10 +26,10 @@ export function initList() {
   const log = select<HTMLUListElement, unknown>("#log");
 
   function render() {
-    if (getCurrentMode() === Mode.VIEW) {
-      renderViewList(log);
-    } else {
+    if (getCurrentMode() === Mode.DIFF && !diffState.isSelecting()) {
       renderDiffList(log);
+    } else {
+      renderViewList(log);
     }
   }
 
@@ -54,6 +54,24 @@ function renderViewList(
   log: Selection<HTMLUListElement, unknown, HTMLElement, unknown>,
 ) {
   const rows = [...viewState.getRows()].reverse();
+  const selecting = diffState.isSelecting();
+
+  // Manage label input row
+  if (selecting) {
+    if (!log.select("#diff-label-row").node()) {
+      log
+        .insert("li", ":first-child")
+        .attr("id", "diff-label-row")
+        .append("input")
+        .attr("id", "diff-label-input")
+        .attr("type", "text")
+        .attr("placeholder", "Diff label (optional)")
+    }
+  } else {
+    log.select("#diff-label-row").remove();
+  }
+
+  log.classed("selecting", selecting);
 
   log.selectAll(".row.diff-row").remove();
 
@@ -65,7 +83,11 @@ function renderViewList(
         .append("li")
         .classed("row", true)
         .on("click", (_, d) => {
-          console.log(d);
+          if (diffState.isSelecting()) {
+            diffState.select(d.index);
+          } else {
+            console.log(d);
+          }
         });
 
       row.append("span").html(createMetadataHTML);
@@ -86,6 +108,8 @@ function renderViewList(
       return row;
     })
     .classed("hidden", (d) => d.isHidden)
+    .classed("selected-from", (d) => selecting && diffState.selectionFrom() === d.index)
+    .classed("selected-to", (d) => selecting && diffState.selectionTo() === d.index)
     .style("--swatch", (d) => {
       const color = getFeatureColor(d.index);
       return d.isHidden ? color + "40" : color;

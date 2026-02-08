@@ -10,7 +10,7 @@ import {
   setTheme,
 } from "../../node_modules/theme-switcher/dist/theme-switcher.js";
 import { MapView } from "./map.ts";
-import { MapController } from "./client/map-controller.ts";
+import { MapController } from "./map-controller.ts";
 import { Mode, changeMode } from "./mode-menu.ts";
 import { viewState } from "./view.ts";
 import { diffState } from "./diff.ts";
