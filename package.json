@@ -8,10 +8,10 @@
   "main": "index.ts",
   "scripts": {
     "build": "pnpm build:client && pnpm build:assets",
-    "build:client": "esbuild src/client/index.ts --bundle --sourcemap --outfile=public/assets/client.js --tsconfig=tsconfig.client.json",
+    "build:client": "esbuild src/client/index.ts --bundle --sourcemap --outfile=public/assets/client.js",
     "build:assets": "cpx 'src/client/style.css' public/assets && cpx 'vendor/*' public/assets && cpx 'node_modules/@turf/turf/turf.min.js' public/assets/",
     "watch": "concurrently -n client,assets,server -c magenta,cyan,yellow \"pnpm watch:client\" \"pnpm watch:assets\" \"pnpm watch:server\"",
-    "watch:client": "esbuild src/client/index.ts --watch --bundle --sourcemap --outfile=public/assets/client.js --tsconfig=tsconfig.client.json",
+    "watch:client": "esbuild src/client/index.ts --watch --bundle --sourcemap --outfile=public/assets/client.js",
     "watch:assets": "concurrently \"cpx 'src/client/style.css' public/assets --watch --verbose\" \"cpx 'vendor/*' public/assets --watch --verbose\"",
     "watch:server": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
