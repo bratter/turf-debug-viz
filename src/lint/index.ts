@@ -10,21 +10,11 @@
 import type { GeoJSON } from "geojson";
 import type { Lint, LintResultGroup } from "./types.ts";
 import { Severity } from "./types.ts";
-import {
-  GEOJSON_TYPES,
-  FEATURE,
-  FEATURE_COLLECTION,
-  POINT,
-  MULTI_POINT,
-  LINE_STRING,
-  MULTI_LINE_STRING,
-  POLYGON,
-  MULTI_POLYGON,
-  GEOMETRY_COLLECTION,
-} from "./const.ts";
+import { GEOJSON_TYPES, FEATURE, FEATURE_COLLECTION } from "./const.ts";
 import { resultGroup } from "./builder.ts";
 import { makeTypeLint } from "./helpers.ts";
 import { lintFeature, lintFeatureCollection } from "./feature.ts";
+import { lintGeometry } from "./geometry.ts";
 
 // TODO: Should this be a factory, if so should account for nullable and non-nullable
 const targetIsObject: Lint = {
@@ -62,19 +52,8 @@ export function lint(gj: GeoJSON): LintResultGroup {
       case FEATURE_COLLECTION:
         g.add(lintFeatureCollection(gj));
         break;
-      case POINT:
-        break;
-      case MULTI_POINT:
-        break;
-      case LINE_STRING:
-        break;
-      case MULTI_LINE_STRING:
-        break;
-      case POLYGON:
-        break;
-      case MULTI_POLYGON:
-        break;
-      case GEOMETRY_COLLECTION:
+      default:
+        g.add(lintGeometry(gj));
         break;
     }
   }

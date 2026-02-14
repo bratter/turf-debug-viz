@@ -7,27 +7,66 @@ import type { Lint } from "./types.ts";
 import { Severity } from "./types.ts";
 
 /**
- * Factory function that creates a lint checking if a member is an Array.
+ * Factory function that creates a lint checking if a value is an Array.
  *
- * @param memberLabel - Name of the member being checked
- * @param ref - Optional spec reference (e.g., "RFC7946 3.3")
+ * Takes the value directly (not the parent). The `member` param is for
+ * naming/description only.
+ *
+ * @param member - Name of the member being checked
+ * @param options.ref - Optional spec reference (e.g., "RFC7946 3.3")
  */
 export function makeArrayLint(
-  memberLabel: string,
-  ref?: string,
-): Lint<Array<any>> {
+  member: string,
+  options: { ref?: string } = {},
+): Lint<unknown> {
+  const { ref } = options;
   return {
-    name: `${memberLabel}-is-array`,
-    description: `The ${memberLabel} member MUST be an Array${ref ? ` (${ref})` : ""}`,
+    name: `${member}-is-array`,
+    description: `The ${member} member MUST be an Array${ref ? ` (${ref})` : ""}`,
     severity: Severity.Error,
     tag: "Schema",
-    test(target) {
+    test(target: unknown) {
+      if (target === undefined) return `The ${member} member must be present`;
       if (!Array.isArray(target))
         return `Expected an Array, received ${typeof target}`;
     },
   };
 }
 
+/**
+ * Factory function that creates a lint checking if a value is an Object.
+ *
+ * Takes the value directly (not the parent). The `member` param is for
+ * naming/description only.
+ *
+ * @param member - Name of the member being checked
+ * @param options.nullable - Whether null is a valid value (default: false)
+ * @param options.ref - Optional spec reference (e.g., "RFC7946 3.2")
+ */
+export function makeObjectLint(
+  member: string,
+  options: { nullable?: boolean; ref?: string } = {},
+): Lint<unknown> {
+  const { nullable = false, ref } = options;
+  const nullClause = nullable ? " or null" : "";
+  return {
+    name: `${member}-is-object`,
+    description: `The ${member} member MUST be an Object${nullClause}${ref ? ` (${ref})` : ""}`,
+    severity: Severity.Error,
+    tag: "Schema",
+    test(target: unknown) {
+      if (target === undefined) return `The ${member} member must be present`;
+      if (target === null)
+        return nullable ? undefined : `Expected an Object, received null`;
+      if (Array.isArray(target))
+        return `Expected an Object${nullClause}, received an Array`;
+      if (typeof target !== "object")
+        return `Expected an Object${nullClause}, received ${typeof target}`;
+    },
+  };
+}
+
+// TODO: Convert all geojson types to unknown here, then fix - or at least ?. the property access
 /**
  * Factory function that creates a lint checking if the type field matches an expected value.
  *
