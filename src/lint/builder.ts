@@ -22,7 +22,11 @@ export function resultGroup(
 ): ResultGroupBuilder {
   path = [...path, ...segments];
   const results: (LintResult | LintResultGroup)[] = [];
-  const check = <T = any>(lint: Lint<T>, target: T): boolean => {
+  const check = <T = any>(
+    lint: Lint<T>,
+    target: T,
+    ...segments: Path
+  ): boolean => {
     let message: string | undefined;
     try {
       message = lint.test(target);
@@ -33,6 +37,7 @@ export function resultGroup(
     }
     const result: LintResult = {
       name: lint.name,
+      path: [...path, ...segments],
       description: lint.description,
       severity: lint.severity,
       tag: lint.tag,
@@ -52,12 +57,12 @@ export function resultGroup(
         if (typeof lintOrFn === "function") {
           results.push(lintOrFn(item, [...path, i]));
         } else {
-          check(lintOrFn, item);
+          check(lintOrFn, item, i);
         }
       });
     },
-    add(...child: (LintResult | LintResultGroup)[]) {
-      results.push(...child);
+    add(...child: (LintResult | LintResultGroup | undefined)[]) {
+      for (const c of child) if (c !== undefined) results.push(c);
     },
     build(): LintResultGroup {
       let passed = true;

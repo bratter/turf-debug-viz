@@ -18,7 +18,7 @@ const typeIsGeometry = makeTypeLint(
 
 export function lintGeometry(geom: Geometry, path: Path = []): LintResultGroup {
   const g = resultGroup("Geometry", path);
-  g.check(typeIsGeometry, geom);
+  g.check(typeIsGeometry, geom.type, "type");
   g.add(lintBbox(geom, path));
   return g.build();
 }

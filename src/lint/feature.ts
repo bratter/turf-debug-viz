@@ -51,7 +51,7 @@ export function lintFeatureCollection(
   path: Path = [],
 ): LintResultGroup {
   const cGroup = resultGroup(FEATURE_COLLECTION, path);
-  cGroup.check(typeIsFeatureCollection, fc);
+  cGroup.check(typeIsFeatureCollection, fc.type, "type");
   cGroup.add(lintBbox(fc));
 
   const fGroup = resultGroup("features", path, "features");
@@ -65,31 +65,25 @@ export function lintFeatureCollection(
 
 export function lintFeature(f: Feature, path: Path = []): LintResultGroup {
   const g = resultGroup(FEATURE, path);
-  g.check(typeIsFeature, f);
+  g.check(typeIsFeature, f.type, "type");
   g.add(lintBbox(f, path));
 
-  // id -- optional, validate type only if present
+  // id - optional, validate type only if present
   if (f.id !== undefined) {
-    const idGroup = resultGroup("id", path, "id");
-    idGroup.check(idIsStringOrNumber, f.id);
-    g.add(idGroup.build());
+    g.check(idIsStringOrNumber, f.id, "id");
   }
 
-  // properties -- required, nullable
-  const propsGroup = resultGroup("properties", path, "properties");
-  propsGroup.check(propertiesIsObject, f.properties);
-  g.add(propsGroup.build());
+  // properties - required, nullable
+  g.check(propertiesIsObject, f.properties, "properties");
 
-  // geometry -- required, nullable with info lint
-  const geomGroup = resultGroup("geometry", path, "geometry");
-  if (geomGroup.check(geometryIsObject, f.geometry)) {
+  // geometry - required, nullable with info lint
+  if (g.check(geometryIsObject, f.geometry, "geometry")) {
     if (f.geometry === null) {
-      geomGroup.check(geometryIsNull, f.geometry);
+      g.check(geometryIsNull, f.geometry, "geometry");
     } else {
-      geomGroup.add(lintGeometry(f.geometry, [...path, "geometry"]));
+      g.add(lintGeometry(f.geometry, [...path, "geometry"]));
     }
   }
-  g.add(geomGroup.build());
 
   return g.build();
 }

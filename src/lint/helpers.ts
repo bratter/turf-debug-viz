@@ -2,7 +2,6 @@
  * Static lints and lint factories.
  */
 
-import type { GeoJSON } from "geojson";
 import type { Lint } from "./types.ts";
 import { Severity } from "./types.ts";
 
@@ -66,14 +65,13 @@ export function makeObjectLint(
   };
 }
 
-// TODO: Convert all geojson types to unknown here, then fix - or at least ?. the property access
 /**
  * Factory function that creates a lint checking if the type field matches an expected value.
  *
  * @param type - Expected type string, used in name, description, and error messages
  * @param ref - Optional spec reference (e.g., "RFC7946 3.1")
  */
-export function makeTypeLint(type: string, ref?: string): Lint<GeoJSON>;
+export function makeTypeLint(type: string, ref?: string): Lint<unknown>;
 /**
  * Factory function that creates a lint checking if the type field matches expected values.
  *
@@ -87,13 +85,13 @@ export function makeTypeLint(
   name: string,
   label: string,
   ref?: string,
-): Lint<GeoJSON>;
+): Lint<unknown>;
 export function makeTypeLint(
   types: string | readonly string[],
   nameOrRef?: string,
   label?: string,
   ref?: string,
-): Lint<GeoJSON> {
+): Lint<unknown> {
   const typeList = typeof types === "string" ? [types] : types;
   const name =
     typeof types === "string"
@@ -108,13 +106,12 @@ export function makeTypeLint(
     description: `Member type MUST be ${descInner}${specRef ? ` (${specRef})` : ""}`,
     severity: Severity.Error,
     tag: "Schema",
-    test(target: GeoJSON) {
-      if (typeof target.type !== "string") {
-        // @ts-expect-error - runtime validation of potentially malformed input
-        return `Expected a string type, received ${typeof target.type}`;
+    test(target: unknown) {
+      if (typeof target !== "string") {
+        return `Expected a string type, received ${typeof target}`;
       }
-      if (!typeList.includes(target.type)) {
-        return `Expected ${errorInner}, received "${target.type}"`;
+      if (!typeList.includes(target)) {
+        return `Expected ${errorInner}, received "${target}"`;
       }
     },
   };

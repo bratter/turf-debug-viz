@@ -48,6 +48,8 @@ export interface Lint<T = any> {
  * Specification for a lint result.
  */
 export interface LintResult extends Omit<Lint, "test"> {
+  /** Path from the object root to the member under test */
+  path: Path;
   /** Whether the lint suceeded */
   passed: boolean;
   /** Optional failure message */
@@ -75,11 +77,11 @@ export interface LintResultGroup {
  */
 export interface ResultGroupBuilder {
   /** Run a lint against a target, push the result, and return whether it passed. */
-  check<T = any>(lint: Lint<T>, target: T): boolean;
+  check<T = any>(lint: Lint<T>, target: T, ...segments: Path): boolean;
   /** Run a lint or group function against every element in an array. */
   checkAll<T = any>(lintOrFn: Lint<T> | GroupFn<T>, target: T[]): void;
-  /** Push pre-built results or child groups. */
-  add(...child: (LintResult | LintResultGroup)[]): void;
+  /** Push pre-built results or child groups. Undefined values are silently ignored. */
+  add(...child: (LintResult | LintResultGroup | undefined)[]): void;
   /** Finalize and return the result group. */
   build(): LintResultGroup;
 }

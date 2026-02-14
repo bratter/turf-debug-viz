@@ -41,7 +41,7 @@ const typeIsGeoJson = makeTypeLint(
 export function lint(gj: GeoJSON): LintResultGroup {
   const g = resultGroup("document", []);
   const validObject = g.check(targetIsObject, gj);
-  const validType = g.check(typeIsGeoJson, gj);
+  const validType = g.check(typeIsGeoJson, gj.type, "type");
 
   // Only lint the type if the document level checks pass
   if (validObject && validType) {
