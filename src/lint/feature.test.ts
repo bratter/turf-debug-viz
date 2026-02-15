@@ -1,18 +1,11 @@
 import test from "tape";
 import { lintFeature, lintFeatureCollection } from "./feature.ts";
-import type { LintResult, LintResultGroup } from "./types.ts";
+import type { LintResultGroup } from "./types.ts";
+import { find } from "./test/helpers.ts";
 
 const point = { type: "Point", coordinates: [0, 0] };
 const feature = { type: "Feature", properties: {}, geometry: point };
 const fc = { type: "FeatureCollection", features: [] };
-
-/** Find a result by name in a group's results array. */
-function find(group: LintResultGroup, name: string) {
-  return group.results.find((r) => r.name === name) as
-    | LintResult
-    | LintResultGroup
-    | undefined;
-}
 
 test("lintFeature", (t) => {
   t.test("schema", (t) => {
