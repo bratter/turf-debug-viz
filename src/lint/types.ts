@@ -21,17 +21,17 @@ export type Tag = "Schema" | "Geometry";
  * Returns null or undefined on success, or an appropriate error message on
  * failure.
  */
-export type TestFn<T = any> = (target: T) => string | undefined;
+export type TestFn<T = unknown> = (target: T) => string | undefined;
 
 /**
  * The callback function that builds a LintGroup.
  */
-export type GroupFn<T = any> = (item: T, path: Path) => LintResultGroup;
+export type GroupFn<T = unknown> = (item: T, path: Path) => LintResultGroup;
 
 /**
  * Specification for an individual lint.
  */
-export interface Lint<T = any> {
+export interface Lint<T = unknown> {
   /** Unique name of the lint */
   name: string;
   /** Human readable lint description */
@@ -40,6 +40,10 @@ export interface Lint<T = any> {
   severity: Exclude<Severity, "Ok">;
   /** Tag for filtering */
   tag: Tag;
+  /** Hint for the lint runner to skip but mark as passed when undefined **/
+  optional?: boolean;
+  /** Hint for the lint runner to suppress output when the lint passes **/
+  quiet?: boolean;
   /** The linting function to run */
   test: TestFn<T>;
 }
@@ -77,9 +81,18 @@ export interface LintResultGroup {
  */
 export interface ResultGroupBuilder {
   /** Run a lint against a target, push the result, and return whether it passed. */
-  check<T = any>(lint: Lint<T>, target: T, ...segments: Path): boolean;
+  check<T = unknown>(lint: Lint<T>, target: T, ...segments: Path): boolean;
   /** Run a lint or group function against every element in an array. */
-  checkAll<T = any>(lintOrFn: Lint<T> | GroupFn<T>, target: T[]): void;
+  checkAll<T = unknown>(lintOrFn: Lint<T> | GroupFn<T>, target: T[]): void;
+  /**
+   * Run a lint against a the given object member of target.
+   *
+   * Unlike `check` that takes the target directly, `member` is a convenience
+   * function for use only with unverified `Record` objects during structural
+   * validation that nests exactly one path segment into an unknown object,
+   * accessing the member and appending it to the path.
+   */
+  member<T = unknown>(lint: Lint<T>, target: Record<string, T>, member: string): boolean;
   /** Push pre-built results or child groups. Undefined values are silently ignored. */
   add(...child: (LintResult | LintResultGroup | undefined)[]): void;
   /** Finalize and return the result group. */

@@ -17,7 +17,7 @@ import { Severity } from "./types.ts";
 export function makeArrayLint(
   member: string,
   options: { ref?: string } = {},
-): Lint<unknown> {
+): Lint {
   const { ref } = options;
   return {
     name: `${member}-is-array`,
@@ -45,7 +45,7 @@ export function makeArrayLint(
 export function makeObjectLint(
   member: string,
   options: { nullable?: boolean; ref?: string } = {},
-): Lint<unknown> {
+): Lint {
   const { nullable = false, ref } = options;
   const nullClause = nullable ? " or null" : "";
   return {
@@ -71,7 +71,7 @@ export function makeObjectLint(
  * @param type - Expected type string, used in name, description, and error messages
  * @param ref - Optional spec reference (e.g., "RFC7946 3.1")
  */
-export function makeTypeLint(type: string, ref?: string): Lint<unknown>;
+export function makeTypeLint(type: string, ref?: string): Lint;
 /**
  * Factory function that creates a lint checking if the type field matches expected values.
  *
@@ -85,13 +85,13 @@ export function makeTypeLint(
   name: string,
   label: string,
   ref?: string,
-): Lint<unknown>;
+): Lint;
 export function makeTypeLint(
   types: string | readonly string[],
   nameOrRef?: string,
   label?: string,
   ref?: string,
-): Lint<unknown> {
+): Lint {
   const typeList = typeof types === "string" ? [types] : types;
   const name =
     typeof types === "string"

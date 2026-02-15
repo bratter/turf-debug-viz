@@ -22,37 +22,46 @@ export function resultGroup(
 ): ResultGroupBuilder {
   path = [...path, ...segments];
   const results: (LintResult | LintResultGroup)[] = [];
-  const check = <T = any>(
+  const check = <T = unknown>(
     lint: Lint<T>,
     target: T,
     ...segments: Path
   ): boolean => {
+    // If the lint is marked optional, skip if undefined
+    if (lint.optional && target === undefined) return true;
+
     let message: string | undefined;
     try {
       message = lint.test(target);
     } catch (err) {
-      message = err.message
+      message = err instanceof Error && err.message
         ? `Lint threw an error with message: ${err.message}`
         : "Lint threw an unknown error";
     }
-    const result: LintResult = {
-      name: lint.name,
-      path: [...path, ...segments],
-      description: lint.description,
-      severity: lint.severity,
-      tag: lint.tag,
-      passed: message == null,
-    };
 
-    if (!result.passed) result.message = message;
-    results.push(result);
+    // Loose equality check detects null or undefined from the lint test
+    // where no message returned indicated a pass
+    const passed = message == null;
 
-    return result.passed;
+    // If the lint is marked quiet, skip appending the results
+    if (!lint.quiet) {
+      results.push({
+        name: lint.name,
+        path: [...path, ...segments],
+        description: lint.description,
+        severity: lint.severity,
+        tag: lint.tag,
+        message,
+        passed,
+      });
+    }
+
+    return passed;
   };
 
   return {
     check,
-    checkAll<T = any>(lintOrFn: Lint<T> | GroupFn<T>, target: T[]) {
+    checkAll<T = unknown>(lintOrFn: Lint<T> | GroupFn<T>, target: T[]) {
       target.forEach((item, i) => {
         if (typeof lintOrFn === "function") {
           results.push(lintOrFn(item, [...path, i]));
@@ -60,6 +69,9 @@ export function resultGroup(
           check(lintOrFn, item, i);
         }
       });
+    },
+    member(lint: Lint, target: Record<string, unknown>, member: string): boolean {
+      return check(lint, target[member], member);
     },
     add(...child: (LintResult | LintResultGroup | undefined)[]) {
       for (const c of child) if (c !== undefined) results.push(c);

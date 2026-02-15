@@ -41,3 +41,4 @@ The builder's `check` wraps test execution in try-catch. If a test throws, the r
 - If we do this on a string with momoa could give positions, do this by
   replacing path with a context that optionally has the source references
 - If want to extract into own repo, use git subtree split
+- Work on consistency and simplicity in lint helper and lint group naming

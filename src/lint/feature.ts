@@ -2,7 +2,6 @@
  * Feature and FeatureCollection lints.
  */
 
-import { Feature, FeatureCollection } from "geojson";
 import { Lint, LintResultGroup, Path } from "./types.ts";
 import { Severity } from "./types.ts";
 import { FEATURE, FEATURE_COLLECTION } from "./const.ts";
@@ -11,9 +10,14 @@ import { makeTypeLint, makeArrayLint, makeObjectLint } from "./helpers.ts";
 import { lintBbox } from "./bbox.ts";
 import { lintGeometry } from "./geometry.ts";
 
+// FeatureCollection lints
+const fcIsObject = makeObjectLint(FEATURE_COLLECTION, { ref: "RFC7946 3.3" });
 const typeIsFeatureCollection = makeTypeLint(FEATURE_COLLECTION, "RFC7946 3.3");
-const typeIsFeature = makeTypeLint(FEATURE, "RFC7946 3.2");
 const featuresIsArray = makeArrayLint("features", { ref: "RFC7946 3.3" });
+
+// FeatureLints
+const featureIsObject = makeObjectLint(FEATURE, { ref: "RFC7946 3.2" });
+const typeIsFeature = makeTypeLint(FEATURE, "RFC7946 3.2");
 const propertiesIsObject = makeObjectLint("properties", {
   nullable: true,
   ref: "RFC7946 3.2",
@@ -22,67 +26,67 @@ const geometryIsObject = makeObjectLint("geometry", {
   nullable: true,
   ref: "RFC7946 3.2",
 });
-
-const idIsStringOrNumber: Lint<unknown> = {
+const idIsStringOrNumber: Lint = {
   name: "id-type",
   description:
     "If present, the id member MUST be a string or number (RFC7946 3.2)",
   severity: Severity.Error,
   tag: "Schema",
+  optional: true,
   test(target: unknown) {
     if (typeof target !== "string" && typeof target !== "number")
       return `Expected a string or number, received ${typeof target}`;
   },
 };
-
-const geometryIsNull: Lint<unknown> = {
-  name: "geometry-null",
-  description:
-    "A null geometry is valid per RFC7946, but may cause issues with some GeoJSON processing tools",
+const NULL_GEOMETRY_MSG = "A null geometry is valid per RFC7946, but may cause issues with some GeoJSON processing tools";
+const geometryNotNull: Lint = {
+  name: "geometry-not-null",
+  description: NULL_GEOMETRY_MSG,
   severity: Severity.Info,
+  quiet: true,
   tag: "Schema",
-  test() {
-    return "A null geometry is valid per RFC7946, but may cause issues with some GeoJSON processing tools";
+  test(target: unknown) {
+    if (target === null) return NULL_GEOMETRY_MSG;
   },
 };
 
 export function lintFeatureCollection(
-  fc: FeatureCollection,
+  target: unknown,
   path: Path = [],
 ): LintResultGroup {
-  const cGroup = resultGroup(FEATURE_COLLECTION, path);
-  cGroup.check(typeIsFeatureCollection, fc.type, "type");
-  cGroup.add(lintBbox(fc));
+  const g = resultGroup(FEATURE_COLLECTION, path);
 
-  const fGroup = resultGroup("features", path, "features");
-  if (fGroup.check(featuresIsArray, fc.features)) {
-    fGroup.checkAll(lintFeature, fc.features);
+  if (!g.check(fcIsObject, target)) return g.build();
+  const fc = target as Record<string, unknown>;
+
+  g.member(typeIsFeatureCollection, fc, "type");
+  g.add(lintBbox(fc.bbox, path));
+
+  const featureGroup = resultGroup("features", path, "features");
+  if (featureGroup.check(featuresIsArray, fc.features)) {
+    featureGroup.checkAll(lintFeature, fc.features as unknown[]);
   }
 
-  cGroup.add(fGroup.build());
-  return cGroup.build();
+  g.add(featureGroup.build());
+  return g.build();
 }
 
-export function lintFeature(f: Feature, path: Path = []): LintResultGroup {
-  const g = resultGroup(FEATURE, path);
-  g.check(typeIsFeature, f.type, "type");
-  g.add(lintBbox(f, path));
+export function lintFeature(target: unknown, path: Path = []): LintResultGroup {
+  const g = resultGroup(FEATURE.toLowerCase(), path);
 
-  // id - optional, validate type only if present
-  if (f.id !== undefined) {
-    g.check(idIsStringOrNumber, f.id, "id");
-  }
+  if (!g.check(featureIsObject, target)) return g.build();
+  const f = target as Record<string, unknown>;
 
-  // properties - required, nullable
-  g.check(propertiesIsObject, f.properties, "properties");
+  g.member(typeIsFeature, f, "type");
+  g.member(idIsStringOrNumber, f, "id");
+  g.member(propertiesIsObject, f, "properties");
+  g.add(lintBbox(f.bbox, path));
 
-  // geometry - required, nullable with info lint
-  if (g.check(geometryIsObject, f.geometry, "geometry")) {
-    if (f.geometry === null) {
-      g.check(geometryIsNull, f.geometry, "geometry");
-    } else {
-      g.add(lintGeometry(f.geometry, [...path, "geometry"]));
-    }
+  const isNotNull = g.member(geometryNotNull, f, "geometry");
+  const isObject = g.member(geometryIsObject, f, "geometry");
+  // Short circuit if the geometry is null - no need for the isObject check
+  if (isNotNull && isObject) {
+    g.add(lintGeometry(f.geometry, [...path, "geometry"]));
   }
 
   return g.build();
