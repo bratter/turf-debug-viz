@@ -3,10 +3,11 @@
  */
 
 import type { LintResultGroup, Path } from "./types.ts";
-import { GEOMETRY_TYPES } from "./const.ts";
+import { GEOMETRY_TYPES, POINT, MULTI_POINT } from "./const.ts";
 import { resultGroup } from "./builder.ts";
 import { makeObjectLint, makeTypeLint } from "./helpers.ts";
 import { lintBbox } from "./bbox.ts";
+import { lintPoint, lintMultiPoint } from "./point.ts";
 
 const geometryIsObject = makeObjectLint("Geometry", { ref: "RFC7946 3.1" });
 const typeIsGeometry = makeTypeLint(
@@ -24,6 +25,15 @@ export function lintGeometry(target: unknown, path: Path = []): LintResultGroup 
 
   g.member(typeIsGeometry, geom, "type");
   g.add(lintBbox(geom.bbox, path));
+
+  switch (geom.type) {
+    case POINT:
+      lintPoint(g, geom, path);
+      break;
+    case MULTI_POINT:
+      lintMultiPoint(g, geom, path);
+      break;
+  }
 
   return g.build();
 }

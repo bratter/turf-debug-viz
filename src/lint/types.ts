@@ -51,7 +51,7 @@ export interface Lint<T = unknown> {
 /**
  * Specification for a lint result.
  */
-export interface LintResult extends Omit<Lint, "test"> {
+export interface LintResult extends Omit<Lint, "test" | "optional" | "quiet"> {
   /** Path from the object root to the member under test */
   path: Path;
   /** Whether the lint suceeded */
