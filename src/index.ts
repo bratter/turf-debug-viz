@@ -1,9 +1,9 @@
 /**
-  * Turf Debug Visualization.
-  *
-  * Creates a simple websocket relay and static site server to enable easy
-  * visualization of geojson objects in turfjs during debugging.
-  */
+ * Turf Debug Visualization.
+ *
+ * Creates a simple websocket relay and static site server to enable easy
+ * visualization of geojson objects in turfjs during debugging.
+ */
 
 import http from "node:http";
 import fs from "node:fs/promises";
@@ -107,11 +107,12 @@ function broadcastOthers(sender: WebSocket, raw: string) {
 }
 
 function openBrowser(url: string) {
-  const command = process.platform === "win32"
-    ? `start ${url}`
-    : process.platform === "darwin"
-      ? `open ${url}`
-      : `xdg-open ${url}`;
+  const command =
+    process.platform === "win32"
+      ? `start ${url}`
+      : process.platform === "darwin"
+        ? `open ${url}`
+        : `xdg-open ${url}`;
 
   exec(command, (err) => {
     if (err) {
@@ -126,4 +127,3 @@ server.listen(PORT, HOST, () => {
   logger.info(`WebSocket endpoint ws://${HOST}:${PORT}/ws`);
   openBrowser(url);
 });
-

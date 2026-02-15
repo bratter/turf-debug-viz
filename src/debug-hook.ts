@@ -58,7 +58,6 @@ function connect(): Connection {
   // underlying socket instance
   (ws as any)._socket.unref();
 
-
   return new Connection(ws);
 }
 
@@ -85,7 +84,9 @@ class Connection {
       throw new Error("WebSocket connection is not open");
     }
 
-    const innerSender = deasync(this.ws.send.bind(this.ws)) as (s: string) => void;
+    const innerSender = deasync(this.ws.send.bind(this.ws)) as (
+      s: string,
+    ) => void;
     innerSender(message);
   }
 
@@ -185,5 +186,5 @@ globalThis.DebugViz = {
    */
   isConnected: () => {
     return connection?.isConnected() ?? false;
-  }
+  },
 };

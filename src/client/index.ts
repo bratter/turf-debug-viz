@@ -8,7 +8,7 @@ import {
   uiThemeSwitcher,
   getTheme,
   setTheme,
-} from "../../node_modules/theme-switcher/dist/theme-switcher.js";
+} from "../../vendor/theme-switcher.js";
 import { MapView } from "./map.ts";
 import { MapController } from "./map-controller.ts";
 import { Mode, changeMode } from "./mode-menu.ts";

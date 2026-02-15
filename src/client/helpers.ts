@@ -3,7 +3,7 @@
  */
 
 import type { GeoJSON } from "geojson";
-import { isDark } from "../../node_modules/theme-switcher/dist/theme-switcher.js";
+import { isDark } from "../../vendor/theme-switcher.js";
 import type { DiffEntry, SendMessage } from "../../types.js";
 
 // TokyoNight color palettes for feature visualization
@@ -35,7 +35,7 @@ const COLOR_PALETTE_DARK = [
 function getFeatureColor(index: number): string {
   const palette = isDark() ? COLOR_PALETTE_DARK : COLOR_PALETTE_LIGHT;
 
-  return palette[index % palette.length];
+  return palette[index % palette.length] as string;
 }
 
 /**
