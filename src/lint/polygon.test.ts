@@ -1,8 +1,10 @@
 import test from "tape";
 import { lintLinearRing, lintPolygon, lintMultiPolygon } from "./polygon.ts";
-import { resultGroup } from "./builder.ts";
+import { createContext } from "./builder.ts";
 import { find } from "./test/helpers.ts";
 import type { LintResultGroup } from "./types.ts";
+
+const ctx = createContext();
 
 test("lintLinearRing", (t) => {
   t.test("schema", (t) => {
@@ -14,6 +16,7 @@ test("lintLinearRing", (t) => {
           [1, 1],
           [0, 0],
         ],
+        ctx,
         ["coordinates", 0],
       );
       t.ok(result.passed);
@@ -21,21 +24,21 @@ test("lintLinearRing", (t) => {
     });
 
     t.test("non-array fails", (t) => {
-      const result = lintLinearRing("x", ["coordinates", 0]);
+      const result = lintLinearRing("x", ctx, ["coordinates", 0]);
       t.notOk(result.passed);
       t.notOk(find(result, "ring-is-array")!.passed);
       t.end();
     });
 
     t.test("undefined fails", (t) => {
-      const result = lintLinearRing(undefined, ["coordinates", 0]);
+      const result = lintLinearRing(undefined, ctx, ["coordinates", 0]);
       t.notOk(result.passed);
       t.notOk(find(result, "ring-is-array")!.passed);
       t.end();
     });
 
     t.test("bad position element surfaces", (t) => {
-      const result = lintLinearRing([[0, "a"]], ["coordinates", 0]);
+      const result = lintLinearRing([[0, "a"]], ctx, ["coordinates", 0]);
       t.notOk(result.passed);
       const positions = find(result, "positions") as LintResultGroup;
       t.ok(positions, "has positions sub-group");
@@ -52,10 +55,8 @@ test("lintLinearRing", (t) => {
 test("lintPolygon", (t) => {
   t.test("schema", (t) => {
     t.test("valid polygon passes", (t) => {
-      const g = resultGroup("Geometry", {}, []);
-      lintPolygon(g, {
-        type: "Polygon",
-        coordinates: [
+      const g = lintPolygon(
+        [
           [
             [0, 0],
             [1, 0],
@@ -63,45 +64,31 @@ test("lintPolygon", (t) => {
             [0, 0],
           ],
         ],
-      });
-      t.ok(g.build().passed);
+        createContext(),
+        [],
+      );
+      t.ok(g.passed);
       t.end();
     });
 
-    t.test("missing coordinates", (t) => {
-      const g = resultGroup("Geometry", {}, []);
-      lintPolygon(g, { type: "Polygon" });
-      const result = g.build();
-      t.notOk(result.passed);
-      const polygon = find(result, "polygon") as LintResultGroup;
-      t.ok(polygon, "has polygon sub-group");
-      t.notOk(polygon.passed);
-      t.notOk(find(polygon, "polygon-is-array")!.passed);
+    t.test("not an array", (t) => {
+      const g = lintPolygon("x", createContext(), []);
+      t.notOk(g.passed);
+      t.notOk(find(g, "polygon-is-array")!.passed);
       t.end();
     });
 
-    t.test("bad coordinates", (t) => {
-      const g = resultGroup("Geometry", {}, []);
-      lintPolygon(g, { type: "Polygon", coordinates: "x" });
-      const result = g.build();
-      t.notOk(result.passed);
-      const polygon = find(result, "polygon") as LintResultGroup;
-      t.ok(polygon, "has polygon sub-group");
-      t.notOk(polygon.passed);
+    t.test("missing (undefined)", (t) => {
+      const g = lintPolygon(undefined, createContext(), []);
+      t.notOk(g.passed);
+      t.notOk(find(g, "polygon-is-array")!.passed);
       t.end();
     });
 
     t.test("bad position in ring surfaces", (t) => {
-      const g = resultGroup("Geometry", {}, []);
-      lintPolygon(g, {
-        type: "Polygon",
-        coordinates: [[[0, "a"]]],
-      });
-      const result = g.build();
-      t.notOk(result.passed);
-      const polygon = find(result, "polygon") as LintResultGroup;
-      t.ok(polygon, "has polygon sub-group");
-      const rings = find(polygon, "rings") as LintResultGroup;
+      const g = lintPolygon([[[0, "a"]]], createContext(), []);
+      t.notOk(g.passed);
+      const rings = find(g, "rings") as LintResultGroup;
       t.ok(rings, "has rings sub-group");
       t.notOk(rings.passed);
       t.end();
@@ -116,10 +103,8 @@ test("lintPolygon", (t) => {
 test("lintMultiPolygon", (t) => {
   t.test("schema", (t) => {
     t.test("valid multipolygon passes", (t) => {
-      const g = resultGroup("Geometry", {}, []);
-      lintMultiPolygon(g, {
-        type: "MultiPolygon",
-        coordinates: [
+      const g = lintMultiPolygon(
+        [
           [
             [
               [0, 0],
@@ -137,38 +122,31 @@ test("lintMultiPolygon", (t) => {
             ],
           ],
         ],
-      });
-      t.ok(g.build().passed);
+        ctx,
+        [],
+      );
+      t.ok(g.passed);
       t.end();
     });
 
-    t.test("missing coordinates", (t) => {
-      const g = resultGroup("Geometry", {}, []);
-      lintMultiPolygon(g, { type: "MultiPolygon" });
-      const result = g.build();
-      t.notOk(result.passed);
-      t.notOk(find(result, "coordinates-is-array")!.passed);
+    t.test("not an array", (t) => {
+      const g = lintMultiPolygon({}, ctx, []);
+      t.notOk(g.passed);
+      t.notOk(find(g, "coordinates-is-array")!.passed);
       t.end();
     });
 
-    t.test("coordinates not array", (t) => {
-      const g = resultGroup("Geometry", {}, []);
-      lintMultiPolygon(g, { type: "MultiPolygon", coordinates: {} });
-      const result = g.build();
-      t.notOk(result.passed);
-      t.notOk(find(result, "coordinates-is-array")!.passed);
+    t.test("missing (undefined)", (t) => {
+      const g = lintMultiPolygon(undefined, ctx, []);
+      t.notOk(g.passed);
+      t.notOk(find(g, "coordinates-is-array")!.passed);
       t.end();
     });
 
     t.test("bad position in nested polygon surfaces", (t) => {
-      const g = resultGroup("Geometry", {}, []);
-      lintMultiPolygon(g, {
-        type: "MultiPolygon",
-        coordinates: [[[[0, "a"]]]],
-      });
-      const result = g.build();
-      t.notOk(result.passed);
-      const polygons = find(result, "polygons") as LintResultGroup;
+      const g = lintMultiPolygon([[[[0, "a"]]]], ctx, []);
+      t.notOk(g.passed);
+      const polygons = find(g, "polygons") as LintResultGroup;
       t.ok(polygons, "has polygons sub-group");
       t.notOk(polygons.passed);
       t.end();

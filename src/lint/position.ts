@@ -54,18 +54,18 @@ const positionDimensionality: Lint = {
   tag: "Geometry",
   test(target: unknown, ctx) {
     const len = (target as unknown[]).length;
-    if (ctx[DIM_KEY] === undefined) {
-      ctx[DIM_KEY] = len;
-    } else if (len !== ctx[DIM_KEY]) {
-      return `Expected ${ctx[DIM_KEY]} elements to match other positions, received ${len}`;
+    if (ctx.state[DIM_KEY] === undefined) {
+      ctx.state[DIM_KEY] = len;
+    } else if (len !== ctx.state[DIM_KEY]) {
+      return `Expected ${ctx.state[DIM_KEY]} elements to match other positions, received ${len}`;
     }
   },
 };
 
 export function lintPosition(
   target: unknown,
-  ctx: LintContext = {},
-  path: Path = [],
+  ctx: LintContext,
+  path: Path,
 ): LintResultGroup {
   const g = resultGroup("position", ctx, path);
   if (!g.check(positionIsArray, target)) return g.build();

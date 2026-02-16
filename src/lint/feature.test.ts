@@ -1,7 +1,9 @@
 import test from "tape";
 import { lintFeature, lintFeatureCollection } from "./feature.ts";
+import { createContext } from "./builder.ts";
 import { find } from "./test/helpers.ts";
 
+const ctx = createContext();
 const point = { type: "Point", coordinates: [0, 0] };
 const feature = { type: "Feature", properties: {}, geometry: point };
 const fc = { type: "FeatureCollection", features: [] };
@@ -9,19 +11,19 @@ const fc = { type: "FeatureCollection", features: [] };
 test("lintFeature", (t) => {
   t.test("schema", (t) => {
     t.test("valid feature passes", (t) => {
-      t.ok(lintFeature(feature).passed);
+      t.ok(lintFeature(feature, ctx, []).passed);
       t.end();
     });
 
     t.test("not object", (t) => {
-      const g = lintFeature("string");
+      const g = lintFeature("string", ctx, []);
       t.notOk(g.passed);
       t.notOk(find(g, "Feature-is-object")!.passed);
       t.end();
     });
 
     t.test("wrong type", (t) => {
-      const g = lintFeature({ ...feature, type: "Wrong" });
+      const g = lintFeature({ ...feature, type: "Wrong" }, ctx, []);
       t.notOk(g.passed);
       t.notOk(find(g, "type-feature")!.passed);
       t.end();
@@ -29,14 +31,14 @@ test("lintFeature", (t) => {
 
     t.test("missing properties", (t) => {
       const { properties, ...rest } = feature;
-      const g = lintFeature(rest);
+      const g = lintFeature(rest, ctx, []);
       t.notOk(g.passed);
       t.notOk(find(g, "properties-is-object")!.passed);
       t.end();
     });
 
     t.test("properties is array", (t) => {
-      const g = lintFeature({ ...feature, properties: [] });
+      const g = lintFeature({ ...feature, properties: [] }, ctx, []);
       t.notOk(g.passed);
       t.notOk(find(g, "properties-is-object")!.passed);
       t.end();
@@ -44,29 +46,29 @@ test("lintFeature", (t) => {
 
     t.test("missing geometry", (t) => {
       const { geometry, ...rest } = feature;
-      const g = lintFeature(rest);
+      const g = lintFeature(rest, ctx, []);
       t.notOk(g.passed);
       t.notOk(find(g, "geometry-is-object")!.passed);
       t.end();
     });
 
     t.test("null geometry ok", (t) => {
-      t.ok(lintFeature({ ...feature, geometry: null }).passed);
+      t.ok(lintFeature({ ...feature, geometry: null }, ctx, []).passed);
       t.end();
     });
 
     t.test("id string ok", (t) => {
-      t.ok(lintFeature({ ...feature, id: "a" }).passed);
+      t.ok(lintFeature({ ...feature, id: "a" }, ctx, []).passed);
       t.end();
     });
 
     t.test("id number ok", (t) => {
-      t.ok(lintFeature({ ...feature, id: 1 }).passed);
+      t.ok(lintFeature({ ...feature, id: 1 }, ctx, []).passed);
       t.end();
     });
 
     t.test("id boolean fails", (t) => {
-      const g = lintFeature({ ...feature, id: true });
+      const g = lintFeature({ ...feature, id: true }, ctx, []);
       t.notOk(g.passed);
       t.notOk(find(g, "id-type")!.passed);
       t.end();
@@ -81,19 +83,19 @@ test("lintFeature", (t) => {
 test("lintFeatureCollection", (t) => {
   t.test("schema", (t) => {
     t.test("valid fc passes", (t) => {
-      t.ok(lintFeatureCollection(fc).passed);
+      t.ok(lintFeatureCollection(fc, ctx, []).passed);
       t.end();
     });
 
     t.test("not object", (t) => {
-      const g = lintFeatureCollection("string");
+      const g = lintFeatureCollection("string", ctx, []);
       t.notOk(g.passed);
       t.notOk(find(g, "FeatureCollection-is-object")!.passed);
       t.end();
     });
 
     t.test("wrong type", (t) => {
-      const g = lintFeatureCollection({ ...fc, type: "Wrong" });
+      const g = lintFeatureCollection({ ...fc, type: "Wrong" }, ctx, []);
       t.notOk(g.passed);
       t.notOk(find(g, "type-featurecollection")!.passed);
       t.end();
@@ -101,14 +103,14 @@ test("lintFeatureCollection", (t) => {
 
     t.test("missing features", (t) => {
       const { features, ...rest } = fc;
-      const g = lintFeatureCollection(rest);
+      const g = lintFeatureCollection(rest, ctx, []);
       t.notOk(g.passed);
       t.notOk(find(g, "features-is-array")!.passed);
       t.end();
     });
 
     t.test("features not array", (t) => {
-      const g = lintFeatureCollection({ ...fc, features: {} });
+      const g = lintFeatureCollection({ ...fc, features: {} }, ctx, []);
       t.notOk(g.passed);
       t.notOk(find(g, "features-is-array")!.passed);
       t.end();

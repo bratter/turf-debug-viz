@@ -34,11 +34,11 @@ const bboxElement: Lint = {
 
 export function lintBbox(
   bbox: unknown,
-  ctx: LintContext = {},
-  path: Path = [],
+  ctx: LintContext,
+  path: Path,
 ): LintResultGroup | undefined {
   if (bbox === undefined) return;
-  const g = resultGroup("bbox", ctx, path, "bbox");
+  const g = resultGroup("bbox", ctx, path);
 
   if (!g.check(bboxIsArray, bbox)) return g.build();
   g.check(bboxLength, bbox);

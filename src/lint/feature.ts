@@ -44,7 +44,6 @@ const geometryNotNull: Lint = {
   name: "geometry-not-null",
   description: NULL_GEOMETRY_MSG,
   severity: Severity.Info,
-  quiet: true,
   tag: "Schema",
   test(target: unknown) {
     if (target === null) return NULL_GEOMETRY_MSG;
@@ -53,18 +52,18 @@ const geometryNotNull: Lint = {
 
 export function lintFeatureCollection(
   target: unknown,
-  ctx: LintContext = {},
-  path: Path = [],
+  ctx: LintContext,
+  path: Path,
 ): LintResultGroup {
   const g = resultGroup(FEATURE_COLLECTION, ctx, path);
 
   if (!g.check(fcIsObject, target)) return g.build();
   const fc = target as Record<string, unknown>;
 
-  g.member(typeIsFeatureCollection, fc, "type");
-  g.add(lintBbox(fc.bbox, g.ctx, path));
+  g.check(typeIsFeatureCollection, fc, "type");
+  g.group(lintBbox, fc, "bbox");
 
-  if (g.check(featuresIsArray, fc.features, "features")) {
+  if (g.check(featuresIsArray, fc, "features")) {
     g.checkAll("features", lintFeature, fc.features as unknown[], {
       segment: "features",
     });
@@ -75,24 +74,24 @@ export function lintFeatureCollection(
 
 export function lintFeature(
   target: unknown,
-  ctx: LintContext = {},
-  path: Path = [],
+  ctx: LintContext,
+  path: Path,
 ): LintResultGroup {
   const g = resultGroup(FEATURE.toLowerCase(), ctx, path);
 
   if (!g.check(featureIsObject, target)) return g.build();
   const f = target as Record<string, unknown>;
 
-  g.member(typeIsFeature, f, "type");
-  g.member(idIsStringOrNumber, f, "id");
-  g.member(propertiesIsObject, f, "properties");
-  g.add(lintBbox(f.bbox, g.ctx, path));
+  g.check(typeIsFeature, f, "type");
+  g.check(idIsStringOrNumber, f, "id");
+  g.check(propertiesIsObject, f, "properties");
+  g.group(lintBbox, f, "bbox");
 
-  const isNotNull = g.member(geometryNotNull, f, "geometry");
-  const isObject = g.member(geometryIsObject, f, "geometry");
+  const isNotNull = g.test(geometryNotNull, f, "geometry");
+  const isObject = g.check(geometryIsObject, f, "geometry");
   // Short circuit if the geometry is null - no need for the isObject check
   if (isNotNull && isObject) {
-    g.add(lintGeometry(f.geometry, g.ctx, [...path, "geometry"]));
+    g.group(lintGeometry, f, "geometry");
   }
 
   return g.build();

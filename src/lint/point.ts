@@ -1,8 +1,9 @@
 /**
- * Point and MultiPoint geometry lints.
+ * MultiPoint geometry lint.
  */
 
-import type { ResultGroupBuilder } from "./types.ts";
+import type { LintContext, LintResultGroup, Path } from "./types.ts";
+import { resultGroup } from "./builder.ts";
 import { makeArrayLint } from "./helpers.ts";
 import { lintPosition } from "./position.ts";
 
@@ -10,20 +11,13 @@ const coordinatesIsArray = makeArrayLint("coordinates", {
   ref: "RFC7946 3.1.3",
 });
 
-export function lintPoint(
-  g: ResultGroupBuilder,
-  geom: Record<string, unknown>,
-): void {
-  g.add(lintPosition(geom.coordinates, g.ctx, [...g.path, "coordinates"]));
-}
-
 export function lintMultiPoint(
-  g: ResultGroupBuilder,
-  geom: Record<string, unknown>,
-): void {
-  if (!g.check(coordinatesIsArray, geom.coordinates, "coordinates")) return;
-  g.checkAll("positions", lintPosition, geom.coordinates as unknown[], {
-    quiet: true,
-    segment: "coordinates",
-  });
+  target: unknown,
+  ctx: LintContext,
+  path: Path,
+): LintResultGroup {
+  const g = resultGroup("MultiPoint", ctx, path);
+  if (!g.check(coordinatesIsArray, target)) return g.build();
+  g.checkAll("positions", lintPosition, target as unknown[], { quiet: true });
+  return g.build();
 }

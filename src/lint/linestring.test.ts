@@ -1,58 +1,44 @@
 import test from "tape";
 import { lintLineString, lintMultiLineString } from "./linestring.ts";
-import { resultGroup } from "./builder.ts";
+import { createContext } from "./builder.ts";
 import { find } from "./test/helpers.ts";
 import type { LintResultGroup } from "./types.ts";
+
+const ctx = createContext();
 
 test("lintLineString", (t) => {
   t.test("schema", (t) => {
     t.test("valid linestring passes", (t) => {
-      const g = resultGroup("Geometry", {}, []);
-      lintLineString(g, {
-        type: "LineString",
-        coordinates: [
+      const g = lintLineString(
+        [
           [0, 0],
           [1, 1],
         ],
-      });
-      t.ok(g.build().passed);
+        createContext(),
+        [],
+      );
+      t.ok(g.passed);
       t.end();
     });
 
-    t.test("missing coordinates", (t) => {
-      const g = resultGroup("Geometry", {}, []);
-      lintLineString(g, { type: "LineString" });
-      const result = g.build();
-      t.notOk(result.passed);
-      const line = find(result, "line") as LintResultGroup;
-      t.ok(line, "has line sub-group");
-      t.notOk(line.passed);
-      t.notOk(find(line, "line-is-array")!.passed);
+    t.test("not an array", (t) => {
+      const g = lintLineString("x", createContext(), []);
+      t.notOk(g.passed);
+      t.notOk(find(g, "line-is-array")!.passed);
       t.end();
     });
 
-    t.test("bad coordinates", (t) => {
-      const g = resultGroup("Geometry", {}, []);
-      lintLineString(g, { type: "LineString", coordinates: "x" });
-      const result = g.build();
-      t.notOk(result.passed);
-      const line = find(result, "line") as LintResultGroup;
-      t.ok(line, "has line sub-group");
-      t.notOk(line.passed);
+    t.test("missing (undefined)", (t) => {
+      const g = lintLineString(undefined, createContext(), []);
+      t.notOk(g.passed);
+      t.notOk(find(g, "line-is-array")!.passed);
       t.end();
     });
 
     t.test("bad position element", (t) => {
-      const g = resultGroup("Geometry", {}, []);
-      lintLineString(g, {
-        type: "LineString",
-        coordinates: [[0, "a"]],
-      });
-      const result = g.build();
-      t.notOk(result.passed);
-      const line = find(result, "line") as LintResultGroup;
-      t.ok(line, "has line sub-group");
-      const positions = find(line, "positions") as LintResultGroup;
+      const g = lintLineString([[0, "a"]], createContext(), []);
+      t.notOk(g.passed);
+      const positions = find(g, "positions") as LintResultGroup;
       t.ok(positions, "has positions sub-group");
       t.notOk(positions.passed);
       t.end();
@@ -67,10 +53,8 @@ test("lintLineString", (t) => {
 test("lintMultiLineString", (t) => {
   t.test("schema", (t) => {
     t.test("valid multilinestring passes", (t) => {
-      const g = resultGroup("Geometry", {}, []);
-      lintMultiLineString(g, {
-        type: "MultiLineString",
-        coordinates: [
+      const g = lintMultiLineString(
+        [
           [
             [0, 0],
             [1, 1],
@@ -80,38 +64,31 @@ test("lintMultiLineString", (t) => {
             [3, 3],
           ],
         ],
-      });
-      t.ok(g.build().passed);
+        ctx,
+        [],
+      );
+      t.ok(g.passed);
       t.end();
     });
 
-    t.test("missing coordinates", (t) => {
-      const g = resultGroup("Geometry", {}, []);
-      lintMultiLineString(g, { type: "MultiLineString" });
-      const result = g.build();
-      t.notOk(result.passed);
-      t.notOk(find(result, "coordinates-is-array")!.passed);
+    t.test("not an array", (t) => {
+      const g = lintMultiLineString({}, ctx, []);
+      t.notOk(g.passed);
+      t.notOk(find(g, "coordinates-is-array")!.passed);
       t.end();
     });
 
-    t.test("coordinates not array", (t) => {
-      const g = resultGroup("Geometry", {}, []);
-      lintMultiLineString(g, { type: "MultiLineString", coordinates: {} });
-      const result = g.build();
-      t.notOk(result.passed);
-      t.notOk(find(result, "coordinates-is-array")!.passed);
+    t.test("missing (undefined)", (t) => {
+      const g = lintMultiLineString(undefined, ctx, []);
+      t.notOk(g.passed);
+      t.notOk(find(g, "coordinates-is-array")!.passed);
       t.end();
     });
 
     t.test("bad position element in line", (t) => {
-      const g = resultGroup("Geometry", {}, []);
-      lintMultiLineString(g, {
-        type: "MultiLineString",
-        coordinates: [[[0, "a"]]],
-      });
-      const result = g.build();
-      t.notOk(result.passed);
-      const lines = find(result, "lines") as LintResultGroup;
+      const g = lintMultiLineString([[[0, "a"]]], ctx, []);
+      t.notOk(g.passed);
+      const lines = find(g, "lines") as LintResultGroup;
       t.ok(lines, "has lines sub-group");
       t.notOk(lines.passed);
       t.end();

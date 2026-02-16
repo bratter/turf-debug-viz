@@ -16,7 +16,8 @@ import {
 import { resultGroup } from "./builder.ts";
 import { makeArrayLint, makeObjectLint, makeTypeLint } from "./helpers.ts";
 import { lintBbox } from "./bbox.ts";
-import { lintPoint, lintMultiPoint } from "./point.ts";
+import { lintPosition } from "./position.ts";
+import { lintMultiPoint } from "./point.ts";
 import { lintLineString, lintMultiLineString } from "./linestring.ts";
 import { lintPolygon, lintMultiPolygon } from "./polygon.ts";
 
@@ -31,40 +32,39 @@ const typeIsGeometry = makeTypeLint(
 
 export function lintGeometry(
   target: unknown,
-  ctx: LintContext = {},
-  path: Path = [],
+  ctx: LintContext,
+  path: Path,
 ): LintResultGroup {
   const g = resultGroup("Geometry", ctx, path);
 
   if (!g.check(geometryIsObject, target)) return g.build();
   const geom = target as Record<string, unknown>;
 
-  g.member(typeIsGeometry, geom, "type");
-  g.add(lintBbox(geom.bbox, g.ctx, path));
+  g.check(typeIsGeometry, geom, "type");
+  g.group(lintBbox, geom, "bbox");
 
   switch (geom.type) {
     case POINT:
-      lintPoint(g, geom);
+      g.group(lintPosition, geom, "coordinates");
       break;
     case MULTI_POINT:
-      lintMultiPoint(g, geom);
+      g.group(lintMultiPoint, geom, "coordinates");
       break;
     case LINE_STRING:
-      lintLineString(g, geom);
+      g.group(lintLineString, geom, "coordinates");
       break;
     case MULTI_LINE_STRING:
-      lintMultiLineString(g, geom);
+      g.group(lintMultiLineString, geom, "coordinates");
       break;
     case POLYGON:
-      lintPolygon(g, geom);
+      g.group(lintPolygon, geom, "coordinates");
       break;
     case MULTI_POLYGON:
-      lintMultiPolygon(g, geom);
+      g.group(lintMultiPolygon, geom, "coordinates");
       break;
     case GEOMETRY_COLLECTION: {
-      if (!g.check(geometriesIsArray, geom.geometries, "geometries")) break;
+      if (!g.check(geometriesIsArray, geom, "geometries")) break;
       g.checkAll("geometries", lintGeometry, geom.geometries as unknown[], {
-        quiet: true,
         segment: "geometries",
       });
       break;
