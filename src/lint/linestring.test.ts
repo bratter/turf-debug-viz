@@ -7,7 +7,7 @@ import type { LintResultGroup } from "./types.ts";
 test("lintLineString", (t) => {
   t.test("schema", (t) => {
     t.test("valid linestring passes", (t) => {
-      const g = resultGroup("Geometry", []);
+      const g = resultGroup("Geometry", {}, []);
       lintLineString(g, {
         type: "LineString",
         coordinates: [
@@ -20,7 +20,7 @@ test("lintLineString", (t) => {
     });
 
     t.test("missing coordinates", (t) => {
-      const g = resultGroup("Geometry", []);
+      const g = resultGroup("Geometry", {}, []);
       lintLineString(g, { type: "LineString" });
       const result = g.build();
       t.notOk(result.passed);
@@ -32,7 +32,7 @@ test("lintLineString", (t) => {
     });
 
     t.test("bad coordinates", (t) => {
-      const g = resultGroup("Geometry", []);
+      const g = resultGroup("Geometry", {}, []);
       lintLineString(g, { type: "LineString", coordinates: "x" });
       const result = g.build();
       t.notOk(result.passed);
@@ -43,7 +43,7 @@ test("lintLineString", (t) => {
     });
 
     t.test("bad position element", (t) => {
-      const g = resultGroup("Geometry", []);
+      const g = resultGroup("Geometry", {}, []);
       lintLineString(g, {
         type: "LineString",
         coordinates: [[0, "a"]],
@@ -67,7 +67,7 @@ test("lintLineString", (t) => {
 test("lintMultiLineString", (t) => {
   t.test("schema", (t) => {
     t.test("valid multilinestring passes", (t) => {
-      const g = resultGroup("Geometry", []);
+      const g = resultGroup("Geometry", {}, []);
       lintMultiLineString(g, {
         type: "MultiLineString",
         coordinates: [
@@ -86,7 +86,7 @@ test("lintMultiLineString", (t) => {
     });
 
     t.test("missing coordinates", (t) => {
-      const g = resultGroup("Geometry", []);
+      const g = resultGroup("Geometry", {}, []);
       lintMultiLineString(g, { type: "MultiLineString" });
       const result = g.build();
       t.notOk(result.passed);
@@ -95,7 +95,7 @@ test("lintMultiLineString", (t) => {
     });
 
     t.test("coordinates not array", (t) => {
-      const g = resultGroup("Geometry", []);
+      const g = resultGroup("Geometry", {}, []);
       lintMultiLineString(g, { type: "MultiLineString", coordinates: {} });
       const result = g.build();
       t.notOk(result.passed);
@@ -104,7 +104,7 @@ test("lintMultiLineString", (t) => {
     });
 
     t.test("bad position element in line", (t) => {
-      const g = resultGroup("Geometry", []);
+      const g = resultGroup("Geometry", {}, []);
       lintMultiLineString(g, {
         type: "MultiLineString",
         coordinates: [[[0, "a"]]],

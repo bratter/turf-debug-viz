@@ -35,10 +35,7 @@ test("lintLinearRing", (t) => {
     });
 
     t.test("bad position element surfaces", (t) => {
-      const result = lintLinearRing(
-        [[0, "a"]],
-        ["coordinates", 0],
-      );
+      const result = lintLinearRing([[0, "a"]], ["coordinates", 0]);
       t.notOk(result.passed);
       const positions = find(result, "positions") as LintResultGroup;
       t.ok(positions, "has positions sub-group");
@@ -55,7 +52,7 @@ test("lintLinearRing", (t) => {
 test("lintPolygon", (t) => {
   t.test("schema", (t) => {
     t.test("valid polygon passes", (t) => {
-      const g = resultGroup("Geometry", []);
+      const g = resultGroup("Geometry", {}, []);
       lintPolygon(g, {
         type: "Polygon",
         coordinates: [
@@ -72,7 +69,7 @@ test("lintPolygon", (t) => {
     });
 
     t.test("missing coordinates", (t) => {
-      const g = resultGroup("Geometry", []);
+      const g = resultGroup("Geometry", {}, []);
       lintPolygon(g, { type: "Polygon" });
       const result = g.build();
       t.notOk(result.passed);
@@ -84,7 +81,7 @@ test("lintPolygon", (t) => {
     });
 
     t.test("bad coordinates", (t) => {
-      const g = resultGroup("Geometry", []);
+      const g = resultGroup("Geometry", {}, []);
       lintPolygon(g, { type: "Polygon", coordinates: "x" });
       const result = g.build();
       t.notOk(result.passed);
@@ -95,7 +92,7 @@ test("lintPolygon", (t) => {
     });
 
     t.test("bad position in ring surfaces", (t) => {
-      const g = resultGroup("Geometry", []);
+      const g = resultGroup("Geometry", {}, []);
       lintPolygon(g, {
         type: "Polygon",
         coordinates: [[[0, "a"]]],
@@ -119,7 +116,7 @@ test("lintPolygon", (t) => {
 test("lintMultiPolygon", (t) => {
   t.test("schema", (t) => {
     t.test("valid multipolygon passes", (t) => {
-      const g = resultGroup("Geometry", []);
+      const g = resultGroup("Geometry", {}, []);
       lintMultiPolygon(g, {
         type: "MultiPolygon",
         coordinates: [
@@ -146,7 +143,7 @@ test("lintMultiPolygon", (t) => {
     });
 
     t.test("missing coordinates", (t) => {
-      const g = resultGroup("Geometry", []);
+      const g = resultGroup("Geometry", {}, []);
       lintMultiPolygon(g, { type: "MultiPolygon" });
       const result = g.build();
       t.notOk(result.passed);
@@ -155,7 +152,7 @@ test("lintMultiPolygon", (t) => {
     });
 
     t.test("coordinates not array", (t) => {
-      const g = resultGroup("Geometry", []);
+      const g = resultGroup("Geometry", {}, []);
       lintMultiPolygon(g, { type: "MultiPolygon", coordinates: {} });
       const result = g.build();
       t.notOk(result.passed);
@@ -164,7 +161,7 @@ test("lintMultiPolygon", (t) => {
     });
 
     t.test("bad position in nested polygon surfaces", (t) => {
-      const g = resultGroup("Geometry", []);
+      const g = resultGroup("Geometry", {}, []);
       lintMultiPolygon(g, {
         type: "MultiPolygon",
         coordinates: [[[[0, "a"]]]],

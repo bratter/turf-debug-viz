@@ -14,7 +14,7 @@ export function lintPoint(
   g: ResultGroupBuilder,
   geom: Record<string, unknown>,
 ): void {
-  g.add(lintPosition(geom.coordinates, [...g.path, "coordinates"]));
+  g.add(lintPosition(geom.coordinates, g.ctx, [...g.path, "coordinates"]));
 }
 
 export function lintMultiPoint(

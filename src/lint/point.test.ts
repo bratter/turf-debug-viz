@@ -7,14 +7,14 @@ import type { LintResultGroup } from "./types.ts";
 test("lintPoint", (t) => {
   t.test("schema", (t) => {
     t.test("valid point passes", (t) => {
-      const g = resultGroup("Geometry", []);
+      const g = resultGroup("Geometry", {}, []);
       lintPoint(g, { type: "Point", coordinates: [0, 0] });
       t.ok(g.build().passed);
       t.end();
     });
 
     t.test("missing coordinates", (t) => {
-      const g = resultGroup("Geometry", []);
+      const g = resultGroup("Geometry", {}, []);
       lintPoint(g, { type: "Point" });
       const result = g.build();
       t.notOk(result.passed);
@@ -26,7 +26,7 @@ test("lintPoint", (t) => {
     });
 
     t.test("bad coordinates", (t) => {
-      const g = resultGroup("Geometry", []);
+      const g = resultGroup("Geometry", {}, []);
       lintPoint(g, { type: "Point", coordinates: "x" });
       const result = g.build();
       t.notOk(result.passed);
@@ -45,7 +45,7 @@ test("lintPoint", (t) => {
 test("lintMultiPoint", (t) => {
   t.test("schema", (t) => {
     t.test("valid multipoint passes", (t) => {
-      const g = resultGroup("Geometry", []);
+      const g = resultGroup("Geometry", {}, []);
       lintMultiPoint(g, {
         type: "MultiPoint",
         coordinates: [
@@ -58,7 +58,7 @@ test("lintMultiPoint", (t) => {
     });
 
     t.test("missing coordinates", (t) => {
-      const g = resultGroup("Geometry", []);
+      const g = resultGroup("Geometry", {}, []);
       lintMultiPoint(g, { type: "MultiPoint" });
       const result = g.build();
       t.notOk(result.passed);
@@ -67,7 +67,7 @@ test("lintMultiPoint", (t) => {
     });
 
     t.test("coordinates not array", (t) => {
-      const g = resultGroup("Geometry", []);
+      const g = resultGroup("Geometry", {}, []);
       lintMultiPoint(g, { type: "MultiPoint", coordinates: {} });
       const result = g.build();
       t.notOk(result.passed);
@@ -76,7 +76,7 @@ test("lintMultiPoint", (t) => {
     });
 
     t.test("bad position element", (t) => {
-      const g = resultGroup("Geometry", []);
+      const g = resultGroup("Geometry", {}, []);
       lintMultiPoint(g, { type: "MultiPoint", coordinates: [[0, "a"]] });
       const result = g.build();
       t.notOk(result.passed);

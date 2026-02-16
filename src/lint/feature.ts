@@ -2,7 +2,7 @@
  * Feature and FeatureCollection lints.
  */
 
-import { Lint, LintResultGroup, Path } from "./types.ts";
+import { Lint, LintContext, LintResultGroup, Path } from "./types.ts";
 import { Severity } from "./types.ts";
 import { FEATURE, FEATURE_COLLECTION } from "./const.ts";
 import { resultGroup } from "./builder.ts";
@@ -53,15 +53,16 @@ const geometryNotNull: Lint = {
 
 export function lintFeatureCollection(
   target: unknown,
+  ctx: LintContext = {},
   path: Path = [],
 ): LintResultGroup {
-  const g = resultGroup(FEATURE_COLLECTION, path);
+  const g = resultGroup(FEATURE_COLLECTION, ctx, path);
 
   if (!g.check(fcIsObject, target)) return g.build();
   const fc = target as Record<string, unknown>;
 
   g.member(typeIsFeatureCollection, fc, "type");
-  g.add(lintBbox(fc.bbox, path));
+  g.add(lintBbox(fc.bbox, g.ctx, path));
 
   if (g.check(featuresIsArray, fc.features, "features")) {
     g.checkAll("features", lintFeature, fc.features as unknown[], {
@@ -72,8 +73,12 @@ export function lintFeatureCollection(
   return g.build();
 }
 
-export function lintFeature(target: unknown, path: Path = []): LintResultGroup {
-  const g = resultGroup(FEATURE.toLowerCase(), path);
+export function lintFeature(
+  target: unknown,
+  ctx: LintContext = {},
+  path: Path = [],
+): LintResultGroup {
+  const g = resultGroup(FEATURE.toLowerCase(), ctx, path);
 
   if (!g.check(featureIsObject, target)) return g.build();
   const f = target as Record<string, unknown>;
@@ -81,13 +86,13 @@ export function lintFeature(target: unknown, path: Path = []): LintResultGroup {
   g.member(typeIsFeature, f, "type");
   g.member(idIsStringOrNumber, f, "id");
   g.member(propertiesIsObject, f, "properties");
-  g.add(lintBbox(f.bbox, path));
+  g.add(lintBbox(f.bbox, g.ctx, path));
 
   const isNotNull = g.member(geometryNotNull, f, "geometry");
   const isObject = g.member(geometryIsObject, f, "geometry");
   // Short circuit if the geometry is null - no need for the isObject check
   if (isNotNull && isObject) {
-    g.add(lintGeometry(f.geometry, [...path, "geometry"]));
+    g.add(lintGeometry(f.geometry, g.ctx, [...path, "geometry"]));
   }
 
   return g.build();

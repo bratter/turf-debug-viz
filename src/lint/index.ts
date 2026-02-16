@@ -7,7 +7,7 @@
  * performance.
  */
 
-import type { LintResultGroup } from "./types.ts";
+import type { LintContext, LintResultGroup } from "./types.ts";
 import { GEOJSON_TYPES, FEATURE, FEATURE_COLLECTION } from "./const.ts";
 import { resultGroup } from "./builder.ts";
 import { makeObjectLint, makeTypeLint } from "./helpers.ts";
@@ -23,7 +23,8 @@ const typeIsGeoJson = makeTypeLint(
 );
 
 export function lint(target: unknown): LintResultGroup {
-  const g = resultGroup("document", []);
+  const ctx: LintContext = {};
+  const g = resultGroup("document", ctx, []);
 
   if (!g.check(rootIsObject, target)) return g.build();
   const gj = target as Record<string, unknown>;
@@ -32,13 +33,13 @@ export function lint(target: unknown): LintResultGroup {
 
   switch (gj.type) {
     case FEATURE:
-      g.add(lintFeature(gj));
+      g.add(lintFeature(gj, ctx));
       break;
     case FEATURE_COLLECTION:
-      g.add(lintFeatureCollection(gj));
+      g.add(lintFeatureCollection(gj, ctx));
       break;
     default:
-      g.add(lintGeometry(gj));
+      g.add(lintGeometry(gj, ctx));
       break;
   }
 

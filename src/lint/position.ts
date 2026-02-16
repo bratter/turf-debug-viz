@@ -2,7 +2,7 @@
  * Position lints (RFC7946 3.1.1).
  */
 
-import type { Lint, LintResultGroup, Path } from "./types.ts";
+import type { Lint, LintContext, LintResultGroup, Path } from "./types.ts";
 import { Severity } from "./types.ts";
 import { resultGroup } from "./builder.ts";
 import { makeArrayLint } from "./helpers.ts";
@@ -45,14 +45,33 @@ const positionElement: Lint = {
   },
 };
 
+const DIM_KEY = Symbol("dimensionality");
+
+const positionDimensionality: Lint = {
+  name: "position-dimensionality",
+  description: "All positions in a geometry MUST have the same dimensionality",
+  severity: Severity.Error,
+  tag: "Geometry",
+  test(target: unknown, ctx) {
+    const len = (target as unknown[]).length;
+    if (ctx[DIM_KEY] === undefined) {
+      ctx[DIM_KEY] = len;
+    } else if (len !== ctx[DIM_KEY]) {
+      return `Expected ${ctx[DIM_KEY]} elements to match other positions, received ${len}`;
+    }
+  },
+};
+
 export function lintPosition(
   target: unknown,
+  ctx: LintContext = {},
   path: Path = [],
 ): LintResultGroup {
-  const g = resultGroup("position", path);
+  const g = resultGroup("position", ctx, path);
   if (!g.check(positionIsArray, target)) return g.build();
   g.check(positionMinLength, target);
   g.check(positionMaxLength, target);
   g.checkAll("elements", positionElement, target as unknown[]);
+  g.check(positionDimensionality, target);
   return g.build();
 }

@@ -5,6 +5,9 @@
 /** An object access path */
 export type Path = (string | number)[];
 
+/** Shared context bag threaded through the entire lint tree */
+export type LintContext = Record<PropertyKey, unknown>;
+
 /** Lint severity levels */
 export const enum Severity {
   Info = 0,
@@ -21,12 +24,19 @@ export type Tag = "Schema" | "Geometry";
  * Returns null or undefined on success, or an appropriate error message on
  * failure.
  */
-export type TestFn<T = unknown> = (target: T) => string | undefined;
+export type TestFn<T = unknown> = (
+  target: T,
+  ctx: LintContext,
+) => string | undefined;
 
 /**
  * The callback function that builds a LintGroup.
  */
-export type GroupFn<T = unknown> = (item: T, path: Path) => LintResultGroup;
+export type GroupFn<T = unknown> = (
+  item: T,
+  ctx: LintContext,
+  path: Path,
+) => LintResultGroup;
 
 /**
  * Specification for an individual lint.
@@ -84,6 +94,8 @@ export interface LintResultGroup {
  * Builder returned by {@link resultGroup} for assembling lint results.
  */
 export interface ResultGroupBuilder {
+  /** The shared lint context. */
+  readonly ctx: LintContext;
   /** The resolved path of this builder. */
   readonly path: Path;
   /** Run a lint against a target, push the result, and return whether it passed. */

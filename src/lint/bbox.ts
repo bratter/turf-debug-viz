@@ -2,7 +2,7 @@
  * Bounding box lints.
  */
 
-import type { Lint, LintResultGroup, Path } from "./types.ts";
+import type { Lint, LintContext, LintResultGroup, Path } from "./types.ts";
 import { Severity } from "./types.ts";
 import { resultGroup } from "./builder.ts";
 import { makeArrayLint } from "./helpers.ts";
@@ -34,10 +34,11 @@ const bboxElement: Lint = {
 
 export function lintBbox(
   bbox: unknown,
+  ctx: LintContext = {},
   path: Path = [],
 ): LintResultGroup | undefined {
   if (bbox === undefined) return;
-  const g = resultGroup("bbox", path, "bbox");
+  const g = resultGroup("bbox", ctx, path, "bbox");
 
   if (!g.check(bboxIsArray, bbox)) return g.build();
   g.check(bboxLength, bbox);

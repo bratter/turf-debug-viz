@@ -2,7 +2,12 @@
  * Polygon and MultiPolygon geometry lints.
  */
 
-import type { LintResultGroup, Path, ResultGroupBuilder } from "./types.ts";
+import type {
+  LintContext,
+  LintResultGroup,
+  Path,
+  ResultGroupBuilder,
+} from "./types.ts";
 import { resultGroup } from "./builder.ts";
 import { makeArrayLint } from "./helpers.ts";
 import { lintPosition } from "./position.ts";
@@ -15,9 +20,10 @@ const coordinatesIsArray = makeArrayLint("coordinates", {
 
 export function lintLinearRing(
   target: unknown,
+  ctx: LintContext = {},
   path: Path = [],
 ): LintResultGroup {
-  const g = resultGroup("ring", path);
+  const g = resultGroup("ring", ctx, path);
   if (!g.check(ringIsArray, target)) return g.build();
   g.checkAll("positions", lintPosition, target as unknown[], { quiet: true });
   return g.build();
@@ -25,9 +31,10 @@ export function lintLinearRing(
 
 export function lintPolygonCoords(
   target: unknown,
+  ctx: LintContext = {},
   path: Path = [],
 ): LintResultGroup {
-  const g = resultGroup("polygon", path);
+  const g = resultGroup("polygon", ctx, path);
   if (!g.check(polygonIsArray, target)) return g.build();
   g.checkAll("rings", lintLinearRing, target as unknown[], { quiet: true });
   return g.build();
@@ -37,7 +44,7 @@ export function lintPolygon(
   g: ResultGroupBuilder,
   geom: Record<string, unknown>,
 ): void {
-  g.add(lintPolygonCoords(geom.coordinates, [...g.path, "coordinates"]));
+  g.add(lintPolygonCoords(geom.coordinates, g.ctx, [...g.path, "coordinates"]));
 }
 
 export function lintMultiPolygon(

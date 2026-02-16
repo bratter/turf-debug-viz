@@ -2,7 +2,7 @@
  * Geometry lints.
  */
 
-import type { LintResultGroup, Path } from "./types.ts";
+import type { LintContext, LintResultGroup, Path } from "./types.ts";
 import {
   GEOMETRY_TYPES,
   POINT,
@@ -31,15 +31,16 @@ const typeIsGeometry = makeTypeLint(
 
 export function lintGeometry(
   target: unknown,
+  ctx: LintContext = {},
   path: Path = [],
 ): LintResultGroup {
-  const g = resultGroup("Geometry", path);
+  const g = resultGroup("Geometry", ctx, path);
 
   if (!g.check(geometryIsObject, target)) return g.build();
   const geom = target as Record<string, unknown>;
 
   g.member(typeIsGeometry, geom, "type");
-  g.add(lintBbox(geom.bbox, path));
+  g.add(lintBbox(geom.bbox, g.ctx, path));
 
   switch (geom.type) {
     case POINT:

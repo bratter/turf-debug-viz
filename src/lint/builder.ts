@@ -1,5 +1,6 @@
 import {
   Path,
+  LintContext,
   ResultGroupBuilder,
   LintResult,
   LintResultGroup,
@@ -16,6 +17,7 @@ import {
  */
 export function resultGroup(
   name: string,
+  ctx: LintContext,
   path: Path,
   segment?: string | number,
 ): ResultGroupBuilder {
@@ -31,7 +33,7 @@ export function resultGroup(
 
     let message: string | undefined;
     try {
-      message = lint.test(target);
+      message = lint.test(target, ctx);
     } catch (err) {
       message =
         err instanceof Error && err.message
@@ -60,6 +62,7 @@ export function resultGroup(
   };
 
   return {
+    ctx,
     path,
     check,
     checkAll<T = unknown>(
@@ -68,10 +71,10 @@ export function resultGroup(
       target: T[],
       options?: { quiet?: boolean; segment?: string | number },
     ) {
-      const sub = resultGroup(name, path, options?.segment);
+      const sub = resultGroup(name, ctx, path, options?.segment);
       target.forEach((item, i) => {
         if (typeof lintOrFn === "function") {
-          sub.add(lintOrFn(item, [...sub.path, i]));
+          sub.add(lintOrFn(item, ctx, [...sub.path, i]));
         } else {
           sub.check(lintOrFn, item, i);
         }
