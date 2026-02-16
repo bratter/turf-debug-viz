@@ -17,7 +17,10 @@ const typeIsGeometry = makeTypeLint(
   "RFC7946 3.1",
 );
 
-export function lintGeometry(target: unknown, path: Path = []): LintResultGroup {
+export function lintGeometry(
+  target: unknown,
+  path: Path = [],
+): LintResultGroup {
   const g = resultGroup("Geometry", path);
 
   if (!g.check(geometryIsObject, target)) return g.build();
@@ -28,10 +31,10 @@ export function lintGeometry(target: unknown, path: Path = []): LintResultGroup 
 
   switch (geom.type) {
     case POINT:
-      lintPoint(g, geom, path);
+      lintPoint(g, geom);
       break;
     case MULTI_POINT:
-      lintMultiPoint(g, geom, path);
+      lintMultiPoint(g, geom);
       break;
   }
 

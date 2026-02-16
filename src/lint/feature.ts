@@ -38,7 +38,8 @@ const idIsStringOrNumber: Lint = {
       return `Expected a string or number, received ${typeof target}`;
   },
 };
-const NULL_GEOMETRY_MSG = "A null geometry is valid per RFC7946, but may cause issues with some GeoJSON processing tools";
+const NULL_GEOMETRY_MSG =
+  "A null geometry is valid per RFC7946, but may cause issues with some GeoJSON processing tools";
 const geometryNotNull: Lint = {
   name: "geometry-not-null",
   description: NULL_GEOMETRY_MSG,
@@ -62,12 +63,12 @@ export function lintFeatureCollection(
   g.member(typeIsFeatureCollection, fc, "type");
   g.add(lintBbox(fc.bbox, path));
 
-  const featureGroup = resultGroup("features", path, "features");
-  if (featureGroup.check(featuresIsArray, fc.features)) {
-    featureGroup.checkAll(lintFeature, fc.features as unknown[]);
+  if (g.check(featuresIsArray, fc.features, "features")) {
+    g.checkAll("features", lintFeature, fc.features as unknown[], {
+      segment: "features",
+    });
   }
 
-  g.add(featureGroup.build());
   return g.build();
 }
 

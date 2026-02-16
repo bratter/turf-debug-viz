@@ -8,14 +8,14 @@ test("lintPoint", (t) => {
   t.test("schema", (t) => {
     t.test("valid point passes", (t) => {
       const g = resultGroup("Geometry", []);
-      lintPoint(g, { type: "Point", coordinates: [0, 0] }, []);
+      lintPoint(g, { type: "Point", coordinates: [0, 0] });
       t.ok(g.build().passed);
       t.end();
     });
 
     t.test("missing coordinates", (t) => {
       const g = resultGroup("Geometry", []);
-      lintPoint(g, { type: "Point" }, []);
+      lintPoint(g, { type: "Point" });
       const result = g.build();
       t.notOk(result.passed);
       const pos = find(result, "position") as LintResultGroup;
@@ -27,7 +27,7 @@ test("lintPoint", (t) => {
 
     t.test("bad coordinates", (t) => {
       const g = resultGroup("Geometry", []);
-      lintPoint(g, { type: "Point", coordinates: "x" }, []);
+      lintPoint(g, { type: "Point", coordinates: "x" });
       const result = g.build();
       t.notOk(result.passed);
       const pos = find(result, "position") as LintResultGroup;
@@ -46,36 +46,43 @@ test("lintMultiPoint", (t) => {
   t.test("schema", (t) => {
     t.test("valid multipoint passes", (t) => {
       const g = resultGroup("Geometry", []);
-      lintMultiPoint(g, { type: "MultiPoint", coordinates: [[0, 0], [1, 1]] }, []);
+      lintMultiPoint(g, {
+        type: "MultiPoint",
+        coordinates: [
+          [0, 0],
+          [1, 1],
+        ],
+      });
       t.ok(g.build().passed);
       t.end();
     });
 
     t.test("missing coordinates", (t) => {
       const g = resultGroup("Geometry", []);
-      lintMultiPoint(g, { type: "MultiPoint" }, []);
+      lintMultiPoint(g, { type: "MultiPoint" });
       const result = g.build();
       t.notOk(result.passed);
-      const coords = find(result, "coordinates") as LintResultGroup;
-      t.ok(coords, "has coordinates sub-group");
-      t.notOk(find(coords, "coordinates-is-array")!.passed);
+      t.notOk(find(result, "coordinates-is-array")!.passed);
       t.end();
     });
 
     t.test("coordinates not array", (t) => {
       const g = resultGroup("Geometry", []);
-      lintMultiPoint(g, { type: "MultiPoint", coordinates: {} }, []);
+      lintMultiPoint(g, { type: "MultiPoint", coordinates: {} });
       const result = g.build();
       t.notOk(result.passed);
-      const coords = find(result, "coordinates") as LintResultGroup;
-      t.notOk(find(coords, "coordinates-is-array")!.passed);
+      t.notOk(find(result, "coordinates-is-array")!.passed);
       t.end();
     });
 
     t.test("bad position element", (t) => {
       const g = resultGroup("Geometry", []);
-      lintMultiPoint(g, { type: "MultiPoint", coordinates: [[0, "a"]] }, []);
-      t.notOk(g.build().passed);
+      lintMultiPoint(g, { type: "MultiPoint", coordinates: [[0, "a"]] });
+      const result = g.build();
+      t.notOk(result.passed);
+      const positions = find(result, "positions") as LintResultGroup;
+      t.ok(positions, "has positions sub-group");
+      t.notOk(positions.passed);
       t.end();
     });
 

@@ -1,6 +1,5 @@
 import test from "tape";
 import { lintFeature, lintFeatureCollection } from "./feature.ts";
-import type { LintResultGroup } from "./types.ts";
 import { find } from "./test/helpers.ts";
 
 const point = { type: "Point", coordinates: [0, 0] };
@@ -104,18 +103,14 @@ test("lintFeatureCollection", (t) => {
       const { features, ...rest } = fc;
       const g = lintFeatureCollection(rest);
       t.notOk(g.passed);
-      const featuresGroup = find(g, "features") as LintResultGroup;
-      t.ok(featuresGroup, "features group exists");
-      t.notOk(find(featuresGroup, "features-is-array")!.passed);
+      t.notOk(find(g, "features-is-array")!.passed);
       t.end();
     });
 
     t.test("features not array", (t) => {
       const g = lintFeatureCollection({ ...fc, features: {} });
       t.notOk(g.passed);
-      const featuresGroup = find(g, "features") as LintResultGroup;
-      t.ok(featuresGroup, "features group exists");
-      t.notOk(find(featuresGroup, "features-is-array")!.passed);
+      t.notOk(find(g, "features-is-array")!.passed);
       t.end();
     });
 

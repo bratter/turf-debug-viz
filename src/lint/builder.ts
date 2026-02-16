@@ -6,26 +6,25 @@ import {
   Lint,
   GroupFn,
 } from "./types.ts";
-import { Severity } from "./types.ts";
 
 /**
  * Creates a builder for assembling lint results into a named group.
  *
  * @param name - Display name for the group
  * @param path - Base path from the object root
- * @param segments - Additional path segments to append to base
+ * @param segment - Optional path segment to append to base
  */
 export function resultGroup(
   name: string,
   path: Path,
-  ...segments: Path
+  segment?: string | number,
 ): ResultGroupBuilder {
-  path = [...path, ...segments];
+  if (segment != null) path = [...path, segment];
   const results: (LintResult | LintResultGroup)[] = [];
   const check = <T = unknown>(
     lint: Lint<T>,
     target: T,
-    ...segments: Path
+    segment?: string | number,
   ): boolean => {
     // If the lint is marked optional, skip if undefined
     if (lint.optional && target === undefined) return true;
@@ -34,9 +33,10 @@ export function resultGroup(
     try {
       message = lint.test(target);
     } catch (err) {
-      message = err instanceof Error && err.message
-        ? `Lint threw an error with message: ${err.message}`
-        : "Lint threw an unknown error";
+      message =
+        err instanceof Error && err.message
+          ? `Lint threw an error with message: ${err.message}`
+          : "Lint threw an unknown error";
     }
 
     // Loose equality check detects null or undefined from the lint test
@@ -47,7 +47,7 @@ export function resultGroup(
     if (!lint.quiet) {
       results.push({
         name: lint.name,
-        path: [...path, ...segments],
+        path: segment != null ? [...path, segment] : path,
         description: lint.description,
         severity: lint.severity,
         tag: lint.tag,
@@ -60,17 +60,37 @@ export function resultGroup(
   };
 
   return {
+    path,
     check,
-    checkAll<T = unknown>(lintOrFn: Lint<T> | GroupFn<T>, target: T[]) {
+    checkAll<T = unknown>(
+      name: string,
+      lintOrFn: Lint<T> | GroupFn<T>,
+      target: T[],
+      options?: { quiet?: boolean; segment?: string | number },
+    ) {
+      const sub = resultGroup(name, path, options?.segment);
       target.forEach((item, i) => {
         if (typeof lintOrFn === "function") {
-          results.push(lintOrFn(item, [...path, i]));
+          sub.add(lintOrFn(item, [...sub.path, i]));
         } else {
-          check(lintOrFn, item, i);
+          sub.check(lintOrFn, item, i);
         }
       });
+
+      const built = sub.build();
+
+      if (options?.quiet) {
+        const failures = built.results.filter((r) => !r.passed);
+        results.push({ ...built, results: failures });
+      } else {
+        results.push(built);
+      }
     },
-    member(lint: Lint, target: Record<string, unknown>, member: string): boolean {
+    member(
+      lint: Lint,
+      target: Record<string, unknown>,
+      member: string,
+    ): boolean {
       return check(lint, target[member], member);
     },
     add(...child: (LintResult | LintResultGroup | undefined)[]) {
@@ -79,14 +99,18 @@ export function resultGroup(
     build(): LintResultGroup {
       let passed = true;
       let severity = 0;
+      let total = 0;
+      const children = results.length;
+
       for (const r of results) {
+        total += "results" in r ? r.total : 1;
         passed = passed && r.passed;
         if (!passed) {
           severity = Math.max(severity, r.severity);
-          if (severity >= Severity.Error) break;
         }
       }
-      return { name, path, results, severity, passed };
+
+      return { name, path, results, severity, passed, children, total };
     },
   };
 }

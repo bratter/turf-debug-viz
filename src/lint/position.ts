@@ -11,8 +11,7 @@ const positionIsArray = makeArrayLint("position", { ref: "RFC7946 3.1.1" });
 
 const positionMinLength: Lint = {
   name: "position-min-length",
-  description:
-    "A position MUST have at least 2 elements (RFC7946 3.1.1)",
+  description: "A position MUST have at least 2 elements (RFC7946 3.1.1)",
   severity: Severity.Error,
   tag: "Schema",
   test(target: unknown) {
@@ -54,6 +53,6 @@ export function lintPosition(
   if (!g.check(positionIsArray, target)) return g.build();
   g.check(positionMinLength, target);
   g.check(positionMaxLength, target);
-  g.checkAll(positionElement, target as unknown[]);
+  g.checkAll("elements", positionElement, target as unknown[]);
   return g.build();
 }

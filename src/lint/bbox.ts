@@ -41,7 +41,7 @@ export function lintBbox(
 
   if (!g.check(bboxIsArray, bbox)) return g.build();
   g.check(bboxLength, bbox);
-  g.checkAll(bboxElement, bbox as unknown[]);
+  g.checkAll("elements", bboxElement, bbox as unknown[]);
 
   return g.build();
 }

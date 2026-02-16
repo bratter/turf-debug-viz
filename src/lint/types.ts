@@ -74,16 +74,31 @@ export interface LintResultGroup {
   severity: Severity;
   /** Whether all children passed */
   passed: boolean;
+  /** Number of direct children before any quiet filtering */
+  children: number;
+  /** Total number of leaf LintResult nodes in the subtree */
+  total: number;
 }
 
 /**
  * Builder returned by {@link resultGroup} for assembling lint results.
  */
 export interface ResultGroupBuilder {
+  /** The resolved path of this builder. */
+  readonly path: Path;
   /** Run a lint against a target, push the result, and return whether it passed. */
-  check<T = unknown>(lint: Lint<T>, target: T, ...segments: Path): boolean;
-  /** Run a lint or group function against every element in an array. */
-  checkAll<T = unknown>(lintOrFn: Lint<T> | GroupFn<T>, target: T[]): void;
+  check<T = unknown>(
+    lint: Lint<T>,
+    target: T,
+    segment?: string | number,
+  ): boolean;
+  /** Run a lint or group function against every element in an array, wrapping results in a named group. */
+  checkAll<T = unknown>(
+    name: string,
+    lintOrFn: Lint<T> | GroupFn<T>,
+    target: T[],
+    options?: { quiet?: boolean; segment?: string | number },
+  ): void;
   /**
    * Run a lint against a the given object member of target.
    *
@@ -92,7 +107,11 @@ export interface ResultGroupBuilder {
    * validation that nests exactly one path segment into an unknown object,
    * accessing the member and appending it to the path.
    */
-  member<T = unknown>(lint: Lint<T>, target: Record<string, T>, member: string): boolean;
+  member<T = unknown>(
+    lint: Lint<T>,
+    target: Record<string, T>,
+    member: string,
+  ): boolean;
   /** Push pre-built results or child groups. Undefined values are silently ignored. */
   add(...child: (LintResult | LintResultGroup | undefined)[]): void;
   /** Finalize and return the result group. */
