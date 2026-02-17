@@ -2,7 +2,6 @@ import test from "tape";
 import { lintBbox } from "./bbox.ts";
 import { createContext } from "./builder.ts";
 import { find } from "./test/helpers.ts";
-import type { LintResultGroup } from "./types.ts";
 
 const ctx = createContext();
 
@@ -47,12 +46,7 @@ test("lintBbox", (t) => {
     t.test("non-number element", (t) => {
       const g = lintBbox([0, "a", 1, 1], ctx, [])!;
       t.notOk(g.passed);
-      const elements = find(g, "elements") as LintResultGroup;
-      t.ok(elements, "has elements sub-group");
-      const fail = elements.results.find(
-        (r) => r.name === "bbox-element-number" && !r.passed,
-      );
-      t.ok(fail, "has failing element lint");
+      t.notOk(find(g, "bbox-elements")!.passed);
       t.end();
     });
 

@@ -12,7 +12,7 @@ A comprehensive, tree-structured GeoJSON linter. Produces a JSON-ready lint repo
 - `state` -- shared mutable `Record<symbol, unknown>` for cross-check coordination (e.g., position dimensionality)
 - `scope` -- per-scope options (`ScopeOptions`) that cascade to children via `withScope()`
 
-Use `createContext()` to create a fresh context. Use `withScope(ctx, { quiet: true })` to create a child scope -- state is shared by reference, scope is shallow-copied so overrides don't leak upward.
+Use `createContext()` to create a fresh context. Use `withScope(ctx, overrides)` to create a child scope -- state is shared by reference, scope is shallow-copied so overrides don't leak upward.
 
 ### Lints
 
@@ -24,11 +24,10 @@ Static `Lint` objects are preferred. When parameterization is needed (e.g., chec
 
 Group functions follow the `GroupFn` signature: `(target, ctx, path) => LintResultGroup | undefined`. They create a `ResultGroupBuilder` via `resultGroup()`, run lints, and return the built group. The builder provides:
 
-- `check(lint, target, segment?)` -- run a lint, push the result, return whether it passed. When segment is a string, accesses `target[segment]` and appends the segment to the path (member access). When segment is a number, tests target directly and appends the index.
-- `test(lint, target, segment?)` -- same as check but returns the boolean without pushing any result. Used for control flow decisions.
+- `check(lint, target, segment?)` -- run a lint, push the result, return whether it passed. When a segment is provided (string or number), accesses `target[segment]` and appends the segment to the path.
+- `test(lint, target, segment?)` -- same as check but returns the boolean without pushing any result. Used for control flow decisions (e.g., null geometry guard).
 - `group(fn, target, segment?)` -- call a group function and add the returned group as a nested child. Same value/path resolution as check.
-- `inline(fn, target, segment?)` -- call a group function and spread its results into the parent (no extra nesting). Use when a sub-function organizes its checks but you don't want an extra group level.
-- `checkAll(name, lintOrFn, items, options?)` -- run a lint or group function against every array element, wrapping results in a named sub-group. Supports `quiet` (suppress passing results, cascades to children) and `segment` options.
+- `checkAll(name, lintOrFn, items, options?)` -- run a lint or group function against every array element, wrapping results in a named sub-group. Supports `collapse` (see below) and `segment` options.
 - `add(...)` -- push pre-built results or child groups (undefined values are silently ignored)
 - `build()` -- finalize into a `LintResultGroup`
 
@@ -40,11 +39,23 @@ Output is a tree of `LintResultGroup` and `LintResult` nodes. Groups carry a `pa
 
 `Severity` is a numeric enum (`Info = 0`, `Warn = 1`, `Error = 2`). Lints declare their severity; results copy it. Groups aggregate to the worst severity among failures. Both results and groups also carry a `passed` boolean for simple filtering.
 
-### Quiet and Filtering
+### Collapse
 
-Quiet mode suppresses passing results to reduce noise. It is activated per-scope via `checkAll`'s `quiet` option and cascades to all descendants through scoped context. The code-level defaults (e.g., quiet for position arrays inside multi-types) can be overridden by user settings.
+Collapse reduces noise from bulk array checks (primarily position arrays). It is activated per-`checkAll` via the `collapse` option and cascades to all nested `checkAll` descendants through `scope.collapse`. Once set, collapse cannot be backed out — all nesting below the collapse point is flattened.
 
-`filterTree(group, predicate)` provides post-processing: recursively filters leaf results by predicate, prunes empty groups, and recomputes aggregates bottom-up. Useful for tag filtering, severity thresholds, and display.
+When collapse is active on a `checkAll`:
+- **All pass**: The entire subtree is replaced with a single summary `LintResult` (e.g., "All 100 positions valid").
+- **Some fail**: The subtree is flattened and only failing leaf results are kept. The group preserves its original `total` so consumers can derive "3 of 100 failed".
+
+The user setting `collapsePositions` (default `true`) controls whether position-level functions (e.g., `lintLineString`, `lintLinearRing`) activate collapse on their positions `checkAll`. Structural arrays (features, geometries, lines, rings, polygons) do not collapse.
+
+### Filtering
+
+Three post-processing utilities operate on the result tree:
+
+- `filterLintResult(group, predicate)` -- recursively filters leaf results by predicate, prunes empty groups, and recomputes aggregates bottom-up. Useful for tag filtering and severity thresholds.
+- `trimLintResult(group, predicate)` -- same recursive pruning as filter, but preserves the original group aggregates (passed, severity, total, children). Useful for hiding passing results while keeping original counts.
+- `flattenLintResult(group)` -- collects all leaf `LintResult` nodes into a single flat group. The primary way results are presented to consumers.
 
 ### Error handling
 

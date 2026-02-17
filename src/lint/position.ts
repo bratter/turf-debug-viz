@@ -34,14 +34,20 @@ const positionMaxLength: Lint = {
   },
 };
 
-const positionElement: Lint = {
-  name: "position-element-number",
-  description: "Each position element MUST be a number (RFC7946 3.1.1)",
+const positionElements: Lint = {
+  name: "position-elements",
+  description: "All position elements MUST be numbers (RFC7946 3.1.1)",
   severity: Severity.Error,
   tag: "Schema",
   test(target: unknown) {
-    if (typeof target !== "number")
-      return `Expected a number, received ${typeof target}`;
+    const arr = target as unknown[];
+    const bad = arr
+      .map((v, i) => [v, i] as const)
+      .filter(([v]) => typeof v !== "number");
+    if (bad.length > 0) {
+      const details = bad.map(([v, i]) => `[${i}]: ${typeof v}`).join(", ");
+      return `Non-numeric elements: ${details}`;
+    }
   },
 };
 
@@ -71,7 +77,7 @@ export function lintPosition(
   if (!g.check(positionIsArray, target)) return g.build();
   g.check(positionMinLength, target);
   g.check(positionMaxLength, target);
-  g.checkAll("elements", positionElement, target as unknown[]);
+  g.check(positionElements, target);
   g.check(positionDimensionality, target);
   return g.build();
 }

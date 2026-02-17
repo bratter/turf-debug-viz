@@ -9,12 +9,14 @@ export type Path = (string | number)[];
 export interface LintSettings {
   /** Only run lints matching these tags (all tags if unset) */
   tags?: Tag[];
+  /** Collapse position arrays into summary results (default: true) */
+  collapsePositions?: boolean;
 }
 
 /** Per-scope options that cascade to children via {@link withScope} */
 export interface ScopeOptions {
-  /** Suppress passing results in this scope */
-  quiet?: boolean;
+  /** Collapse bulk array checks into summary results in this scope */
+  collapse?: boolean;
 }
 
 /** Context threaded through the entire lint tree */
@@ -101,7 +103,7 @@ export interface LintResultGroup {
   severity: Severity;
   /** Whether all children passed */
   passed: boolean;
-  /** Number of direct children before any quiet filtering */
+  /** Number of direct children */
   children: number;
   /** Total number of leaf LintResult nodes in the subtree */
   total: number;
@@ -140,7 +142,7 @@ export interface ResultGroupBuilder {
     name: string,
     lintOrFn: Lint<T> | GroupFn<T>,
     target: T[],
-    options?: { quiet?: boolean; segment?: string | number },
+    options?: { collapse?: boolean; segment?: string | number },
   ): void;
   /**
    * Call a group function and add the returned group as a child.
@@ -149,13 +151,6 @@ export interface ResultGroupBuilder {
    * `target[segment]` and appends the segment to the child path.
    */
   group<T = unknown>(fn: GroupFn, target: T, segment?: string | number): void;
-  /**
-   * Call a group function and merge its results into this group (no nesting).
-   *
-   * Same value resolution as {@link group}, but the returned group's
-   * results are spread into this builder rather than added as a child group.
-   */
-  inline<T = unknown>(fn: GroupFn, target: T, segment?: string | number): void;
   /** Push pre-built results or child groups. Undefined values are silently ignored. */
   add(...child: (LintResult | LintResultGroup | undefined)[]): void;
   /** Finalize and return the result group. */

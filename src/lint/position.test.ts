@@ -2,7 +2,6 @@ import test from "tape";
 import { lintPosition } from "./position.ts";
 import { createContext } from "./builder.ts";
 import { find } from "./test/helpers.ts";
-import type { LintResultGroup } from "./types.ts";
 
 test("lintPosition", (t) => {
   t.test("schema", (t) => {
@@ -54,12 +53,7 @@ test("lintPosition", (t) => {
     t.test("non-number element", (t) => {
       const g = lintPosition([0, "a"], createContext(), []);
       t.notOk(g.passed);
-      const elements = find(g, "elements") as LintResultGroup;
-      t.ok(elements, "has elements sub-group");
-      const fail = elements.results.find(
-        (r) => r.name === "position-element-number" && !r.passed,
-      );
-      t.ok(fail, "has failing element lint");
+      t.notOk(find(g, "position-elements")!.passed);
       t.end();
     });
 

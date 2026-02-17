@@ -8,6 +8,7 @@ import {
   LintResultGroup,
   Lint,
   GroupFn,
+  Severity,
 } from "./types.ts";
 
 /** Create a fresh LintContext with optional user settings. */
@@ -93,18 +94,15 @@ export function resultGroup(
       const { value, resolvedPath } = resolve(target, path, segment);
       const { passed, message } = runLint(lint, value, ctx);
 
-      // Suppress passing results when in quiet scope
-      if (!(ctx.scope.quiet && passed)) {
-        results.push({
-          name: lint.name,
-          path: resolvedPath,
-          description: lint.description,
-          severity: lint.severity,
-          tag: lint.tag,
-          message,
-          passed,
-        });
-      }
+      results.push({
+        name: lint.name,
+        path: resolvedPath,
+        description: lint.description,
+        severity: lint.severity,
+        tag: lint.tag,
+        message,
+        passed,
+      });
 
       return passed;
     },
@@ -112,9 +110,10 @@ export function resultGroup(
       name: string,
       lintOrFn: Lint<T> | GroupFn<T>,
       target: T[],
-      options?: { quiet?: boolean; segment?: string | number },
+      options?: { collapse?: boolean; segment?: string | number },
     ) {
-      const childCtx = options?.quiet ? withScope(ctx, { quiet: true }) : ctx;
+      const collapse = ctx.scope.collapse || options?.collapse || false;
+      const childCtx = collapse ? withScope(ctx, { collapse: true }) : ctx;
       const sub = resultGroup(name, childCtx, path, options?.segment);
       for (let i = 0; i < target.length; i++) {
         if (typeof lintOrFn === "function") {
@@ -126,9 +125,31 @@ export function resultGroup(
 
       const built = sub.build();
 
-      if (options?.quiet) {
-        const failures = built.results.filter((r) => !r.passed);
-        results.push({ ...built, results: failures });
+      if (collapse) {
+        if (built.passed) {
+          // All passed — emit a single summary result
+          const tag = typeof lintOrFn === "function" ? "Schema" : lintOrFn.tag;
+          results.push({
+            name,
+            path: built.path,
+            description: `All ${target.length} ${name} valid`,
+            severity: Severity.Info,
+            tag,
+            passed: true,
+            message: undefined,
+          } satisfies LintResult);
+        } else {
+          // Some failed — flatten and keep only failures
+          const flat = flattenLintResult(built);
+          const failures = flat.results.filter(
+            (r) => !r.passed,
+          );
+          results.push({
+            ...built,
+            results: failures,
+            children: failures.length,
+          });
+        }
       } else {
         results.push(built);
       }
@@ -137,11 +158,6 @@ export function resultGroup(
       const { value, resolvedPath } = resolve(target, path, segment);
       const result = fn(value, ctx, resolvedPath);
       if (result !== undefined) results.push(result);
-    },
-    inline(fn: GroupFn, target: unknown, segment?: string | number) {
-      const { value, resolvedPath } = resolve(target, path, segment);
-      const result = fn(value, ctx, resolvedPath);
-      if (result !== undefined) results.push(...result.results);
     },
     add(...child: (LintResult | LintResultGroup | undefined)[]) {
       for (const c of child) if (c !== undefined) results.push(c);
@@ -209,12 +225,44 @@ export function filterLintResult(
 }
 
 /**
+ * Recursively trim a lint result tree, removing leaf results that don't
+ * match the predicate. Unlike {@link filterLintResult}, the original
+ * group's aggregates (passed, severity, total, children) are preserved.
+ * Useful for hiding passing results while keeping the original counts.
+ */
+export function trimLintResult(
+  group: LintResultGroup,
+  predicate: (r: LintResult) => boolean,
+): LintResultGroup {
+  const trimmed: (LintResult | LintResultGroup)[] = [];
+
+  for (const r of group.results) {
+    if ("results" in r) {
+      const child = trimLintResult(r, predicate);
+      if (child.results.length > 0) trimmed.push(child);
+    } else {
+      if (predicate(r)) trimmed.push(r);
+    }
+  }
+
+  return {
+    name: group.name,
+    path: group.path,
+    results: trimmed,
+    severity: group.severity,
+    passed: group.passed,
+    children: group.children,
+    total: group.total,
+  };
+}
+
+/**
  * Flatten a lint result tree into a single group with all leaf
  * {@link LintResult} nodes in a flat array. Groups are removed;
  * aggregates are recomputed from the leaves.
  *
  * Useful after {@link filterLintResult} for a simple list of results:
- * `flattenResultGroup(filterResultGroup(group, predicate))`
+ * `flattenLintResult(filterLintResult(group, predicate))`
  */
 export function flattenLintResult(group: LintResultGroup): LintResultGroup {
   const leaves: LintResult[] = [];
@@ -248,4 +296,25 @@ export function flattenLintResult(group: LintResultGroup): LintResultGroup {
     children: leaves.length,
     total: leaves.length,
   };
+}
+
+/**
+ * Format a {@link Path} as a human-readable property access string.
+ *
+ * String segments use dot notation, number segments use bracket notation.
+ * Examples:
+ * - `["features", 0, "geometry"]` → `"features[0].geometry"`
+ * - `[]` → `"(root)"`
+ */
+export function formatPath(path: Path): string {
+  if (path.length === 0) return "(root)";
+  let out = "";
+  for (const seg of path) {
+    if (typeof seg === "number") {
+      out += `[${seg}]`;
+    } else {
+      out += out ? `.${seg}` : seg;
+    }
+  }
+  return out;
 }

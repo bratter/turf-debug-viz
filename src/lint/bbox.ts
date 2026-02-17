@@ -21,14 +21,20 @@ const bboxLength: Lint = {
   },
 };
 
-const bboxElement: Lint = {
-  name: "bbox-element-number",
-  description: "Each bbox element MUST be a number (RFC7946 5)",
+const bboxElements: Lint = {
+  name: "bbox-elements",
+  description: "All bbox elements MUST be numbers (RFC7946 5)",
   severity: Severity.Error,
   tag: "Schema",
   test(target: unknown) {
-    if (typeof target !== "number")
-      return `Expected a number, received ${typeof target}`;
+    const arr = target as unknown[];
+    const bad = arr
+      .map((v, i) => [v, i] as const)
+      .filter(([v]) => typeof v !== "number");
+    if (bad.length > 0) {
+      const details = bad.map(([v, i]) => `[${i}]: ${typeof v}`).join(", ");
+      return `Non-numeric elements: ${details}`;
+    }
   },
 };
 
@@ -42,7 +48,7 @@ export function lintBbox(
 
   if (!g.check(bboxIsArray, bbox)) return g.build();
   g.check(bboxLength, bbox);
-  g.checkAll("elements", bboxElement, bbox as unknown[]);
+  g.check(bboxElements, bbox);
 
   return g.build();
 }
