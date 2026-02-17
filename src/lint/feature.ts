@@ -22,7 +22,7 @@ const propertiesIsObject = makeObjectLint("properties", {
   nullable: true,
   ref: "RFC7946 3.2",
 });
-const geometryIsObject = makeObjectLint("geometry", {
+const geometryIsObject = makeObjectLint("feature-geometry", {
   nullable: true,
   ref: "RFC7946 3.2",
 });
@@ -55,7 +55,7 @@ export function lintFeatureCollection(
   ctx: LintContext,
   path: Path,
 ): LintResultGroup {
-  const g = resultGroup(FEATURE_COLLECTION, ctx, path);
+  const g = resultGroup("feature-collection", ctx, path);
 
   if (!g.check(fcIsObject, target)) return g.build();
   const fc = target as Record<string, unknown>;
@@ -77,7 +77,7 @@ export function lintFeature(
   ctx: LintContext,
   path: Path,
 ): LintResultGroup {
-  const g = resultGroup(FEATURE.toLowerCase(), ctx, path);
+  const g = resultGroup("feature", ctx, path);
 
   if (!g.check(featureIsObject, target)) return g.build();
   const f = target as Record<string, unknown>;

@@ -16,7 +16,7 @@ export function lintMultiPoint(
   ctx: LintContext,
   path: Path,
 ): LintResultGroup {
-  const g = resultGroup("MultiPoint", ctx, path);
+  const g = resultGroup("multi-point", ctx, path);
   if (!g.check(coordinatesIsArray, target)) return g.build();
   g.checkAll("positions", lintPosition, target as unknown[], { quiet: true });
   return g.build();

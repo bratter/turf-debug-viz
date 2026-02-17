@@ -22,6 +22,11 @@ const typeIsGeoJson = makeTypeLint(
   "RFC7946 3",
 );
 
+export {
+  filterLintResult as filterResultGroup,
+  flattenLintResult as flattenResultGroup,
+} from "./builder.ts";
+
 export function lint(
   target: unknown,
   settings: LintSettings = {},

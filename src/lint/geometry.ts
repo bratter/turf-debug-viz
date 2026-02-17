@@ -21,7 +21,7 @@ import { lintMultiPoint } from "./point.ts";
 import { lintLineString, lintMultiLineString } from "./linestring.ts";
 import { lintPolygon, lintMultiPolygon } from "./polygon.ts";
 
-const geometryIsObject = makeObjectLint("Geometry", { ref: "RFC7946 3.1" });
+const geometryIsObject = makeObjectLint("geometry", { ref: "RFC7946 3.1" });
 const geometriesIsArray = makeArrayLint("geometries", { ref: "RFC7946 3.1.8" });
 const typeIsGeometry = makeTypeLint(
   GEOMETRY_TYPES,
@@ -35,7 +35,7 @@ export function lintGeometry(
   ctx: LintContext,
   path: Path,
 ): LintResultGroup {
-  const g = resultGroup("Geometry", ctx, path);
+  const g = resultGroup("geometry", ctx, path);
 
   if (!g.check(geometryIsObject, target)) return g.build();
   const geom = target as Record<string, unknown>;

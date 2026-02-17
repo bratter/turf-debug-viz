@@ -40,7 +40,7 @@ export function lintMultiPolygon(
   ctx: LintContext,
   path: Path,
 ): LintResultGroup {
-  const g = resultGroup("MultiPolygon", ctx, path);
+  const g = resultGroup("multi-polygon", ctx, path);
   if (!g.check(coordinatesIsArray, target)) return g.build();
   g.checkAll("polygons", lintPolygon, target as unknown[]);
   return g.build();

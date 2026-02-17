@@ -28,7 +28,7 @@ export function lintMultiLineString(
   ctx: LintContext,
   path: Path,
 ): LintResultGroup {
-  const g = resultGroup("MultiLineString", ctx, path);
+  const g = resultGroup("multi-line-string", ctx, path);
   if (!g.check(coordinatesIsArray, target)) return g.build();
   g.checkAll("lines", lintLineString, target as unknown[]);
   return g.build();

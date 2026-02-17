@@ -18,7 +18,7 @@ test("lintFeature", (t) => {
     t.test("not object", (t) => {
       const g = lintFeature("string", ctx, []);
       t.notOk(g.passed);
-      t.notOk(find(g, "Feature-is-object")!.passed);
+      t.notOk(find(g, "feature-is-object")!.passed);
       t.end();
     });
 
@@ -48,7 +48,7 @@ test("lintFeature", (t) => {
       const { geometry, ...rest } = feature;
       const g = lintFeature(rest, ctx, []);
       t.notOk(g.passed);
-      t.notOk(find(g, "geometry-is-object")!.passed);
+      t.notOk(find(g, "feature-geometry-is-object")!.passed);
       t.end();
     });
 
@@ -90,14 +90,14 @@ test("lintFeatureCollection", (t) => {
     t.test("not object", (t) => {
       const g = lintFeatureCollection("string", ctx, []);
       t.notOk(g.passed);
-      t.notOk(find(g, "FeatureCollection-is-object")!.passed);
+      t.notOk(find(g, "feature-collection-is-object")!.passed);
       t.end();
     });
 
     t.test("wrong type", (t) => {
       const g = lintFeatureCollection({ ...fc, type: "Wrong" }, ctx, []);
       t.notOk(g.passed);
-      t.notOk(find(g, "type-featurecollection")!.passed);
+      t.notOk(find(g, "type-feature-collection")!.passed);
       t.end();
     });
 

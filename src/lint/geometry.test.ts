@@ -9,8 +9,9 @@ test("lintGeometry", (t) => {
   t.test("schema", (t) => {
     t.test("not object", (t) => {
       const g = lintGeometry("string", ctx, []);
+      console.log(g);
       t.notOk(g.passed);
-      t.notOk(find(g, "Geometry-is-object")!.passed);
+      t.notOk(find(g, "geometry-is-object")!.passed);
       t.end();
     });
 

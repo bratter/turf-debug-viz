@@ -85,19 +85,11 @@ export function resultGroup(
   return {
     ctx,
     path,
-    test(
-      lint: Lint,
-      target: unknown,
-      segment?: string | number,
-    ): boolean {
+    test(lint: Lint, target: unknown, segment?: string | number): boolean {
       const { value } = resolve(target, path, segment);
       return runLint(lint, value, ctx).passed;
     },
-    check(
-      lint: Lint,
-      target: unknown,
-      segment?: string | number,
-    ): boolean {
+    check(lint: Lint, target: unknown, segment?: string | number): boolean {
       const { value, resolvedPath } = resolve(target, path, segment);
       const { passed, message } = runLint(lint, value, ctx);
 
@@ -178,7 +170,7 @@ export function resultGroup(
  * match the predicate. Empty groups are pruned. Aggregates (passed,
  * severity, total, children) are recomputed bottom-up.
  */
-export function filterResultGroup(
+export function filterLintResult(
   group: LintResultGroup,
   predicate: (r: LintResult) => boolean,
 ): LintResultGroup {
@@ -186,7 +178,7 @@ export function filterResultGroup(
 
   for (const r of group.results) {
     if ("results" in r) {
-      const child = filterResultGroup(r, predicate);
+      const child = filterLintResult(r, predicate);
       if (child.results.length > 0) filtered.push(child);
     } else {
       if (predicate(r)) filtered.push(r);
@@ -221,10 +213,10 @@ export function filterResultGroup(
  * {@link LintResult} nodes in a flat array. Groups are removed;
  * aggregates are recomputed from the leaves.
  *
- * Useful after {@link filterResultGroup} for a simple list of results:
+ * Useful after {@link filterLintResult} for a simple list of results:
  * `flattenResultGroup(filterResultGroup(group, predicate))`
  */
-export function flattenResultGroup(group: LintResultGroup): LintResultGroup {
+export function flattenLintResult(group: LintResultGroup): LintResultGroup {
   const leaves: LintResult[] = [];
 
   function collect(node: LintResult | LintResultGroup): void {

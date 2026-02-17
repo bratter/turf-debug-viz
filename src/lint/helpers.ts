@@ -5,6 +5,11 @@
 import type { Lint } from "./types.ts";
 import { Severity } from "./types.ts";
 
+/** Convert a PascalCase or camelCase string to kebab-case. */
+export function kebab(s: string): string {
+  return s.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
+}
+
 /**
  * Factory function that creates a lint checking if a value is an Array.
  *
@@ -19,8 +24,9 @@ export function makeArrayLint(
   options: { ref?: string } = {},
 ): Lint {
   const { ref } = options;
+  const k = kebab(member);
   return {
-    name: `${member}-is-array`,
+    name: `${k}-is-array`,
     description: `The ${member} member MUST be an Array${ref ? ` (${ref})` : ""}`,
     severity: Severity.Error,
     tag: "Schema",
@@ -48,8 +54,9 @@ export function makeObjectLint(
 ): Lint {
   const { nullable = false, ref } = options;
   const nullClause = nullable ? " or null" : "";
+  const k = kebab(member);
   return {
-    name: `${member}-is-object`,
+    name: `${k}-is-object`,
     description: `The ${member} member MUST be an Object${nullClause}${ref ? ` (${ref})` : ""}`,
     severity: Severity.Error,
     tag: "Schema",
@@ -95,7 +102,7 @@ export function makeTypeLint(
   const typeList = typeof types === "string" ? [types] : types;
   const name =
     typeof types === "string"
-      ? `type-${types.toLowerCase()}`
+      ? `type-${kebab(types)}`
       : `type-${nameOrRef?.toLowerCase().replaceAll(" ", "-")}`;
   const specRef = typeof types === "string" ? nameOrRef : ref;
   const descInner = typeof types === "string" ? `"${types}"` : label;

@@ -4,7 +4,6 @@ import { createContext } from "./builder.ts";
 import { find } from "./test/helpers.ts";
 import type { LintResultGroup } from "./types.ts";
 
-
 test("lintPosition", (t) => {
   t.test("schema", (t) => {
     t.test("valid 2-element position passes", (t) => {

@@ -121,12 +121,20 @@ export interface ResultGroupBuilder {
    * When a segment is provided (string or number), accesses
    * `target[segment]` and appends the segment to the path.
    */
-  check<T = unknown>(lint: Lint<T>, target: unknown, segment?: string | number): boolean;
+  check<T = unknown>(
+    lint: Lint<T>,
+    target: unknown,
+    segment?: string | number,
+  ): boolean;
   /**
    * Run a lint against a target and return whether it passed, without
    * pushing any result. Same value resolution as {@link check}.
    */
-  test<T = unknown>(lint: Lint<T>, target: unknown, segment?: string | number): boolean;
+  test<T = unknown>(
+    lint: Lint<T>,
+    target: unknown,
+    segment?: string | number,
+  ): boolean;
   /** Run a lint or group function against every element in an array, wrapping results in a named group. */
   checkAll<T = unknown>(
     name: string,
