@@ -32,8 +32,10 @@ export function makeArrayLint(
     tag: "Schema",
     test(target: unknown) {
       if (target === undefined) return `The ${member} member must be present`;
-      if (!Array.isArray(target))
+      if (!Array.isArray(target)) {
         return `Expected an Array, received ${typeof target}`;
+      }
+      return true;
     },
   };
 }
@@ -63,11 +65,12 @@ export function makeObjectLint(
     test(target: unknown) {
       if (target === undefined) return `The ${member} member must be present`;
       if (target === null)
-        return nullable ? undefined : `Expected an Object, received null`;
+        return nullable ? true : `Expected an Object, received null`;
       if (Array.isArray(target))
         return `Expected an Object${nullClause}, received an Array`;
       if (typeof target !== "object")
         return `Expected an Object${nullClause}, received ${typeof target}`;
+      return true;
     },
   };
 }
@@ -120,6 +123,12 @@ export function makeTypeLint(
       if (!typeList.includes(target)) {
         return `Expected ${errorInner}, received "${target}"`;
       }
+      return true;
     },
   };
+}
+
+/** Type guard to check that a value is a non-null object. */
+export function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }

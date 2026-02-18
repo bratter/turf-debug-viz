@@ -9,7 +9,6 @@ test("lintGeometry", (t) => {
   t.test("schema", (t) => {
     t.test("not object", (t) => {
       const g = lintGeometry("string", ctx, []);
-      console.log(g);
       t.notOk(g.passed);
       t.notOk(find(g, "geometry-is-object")!.passed);
       t.end();
@@ -22,6 +21,21 @@ test("lintGeometry", (t) => {
       t.end();
     });
 
+    t.end();
+  });
+
+  t.test("nested GeometryCollection warns", (t) => {
+    const g = lintGeometry(
+      {
+        type: "GeometryCollection",
+        geometries: [{ type: "GeometryCollection", geometries: [] }],
+      },
+      createContext(),
+      [],
+    );
+    const r = findDeep(g, "no-parent-collection");
+    t.ok(r, "has no-parent-collection result");
+    t.notOk(r!.passed, "nested collection warns");
     t.end();
   });
 

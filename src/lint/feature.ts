@@ -5,7 +5,7 @@
 import { Lint, LintContext, LintResultGroup, Path } from "./types.ts";
 import { Severity } from "./types.ts";
 import { FEATURE, FEATURE_COLLECTION } from "./const.ts";
-import { resultGroup } from "./builder.ts";
+import { resultGroup, withScope } from "./builder.ts";
 import { makeTypeLint, makeArrayLint, makeObjectLint } from "./helpers.ts";
 import { lintBbox } from "./bbox.ts";
 import { lintGeometry } from "./geometry.ts";
@@ -34,8 +34,10 @@ const idIsStringOrNumber: Lint = {
   tag: "Schema",
   optional: true,
   test(target: unknown) {
-    if (typeof target !== "string" && typeof target !== "number")
+    if (typeof target !== "string" && typeof target !== "number") {
       return `Expected a string or number, received ${typeof target}`;
+    }
+    return true;
   },
 };
 const NULL_GEOMETRY_MSG =
@@ -47,6 +49,7 @@ const geometryNotNull: Lint = {
   tag: "Schema",
   test(target: unknown) {
     if (target === null) return NULL_GEOMETRY_MSG;
+    return true;
   },
 };
 
@@ -55,7 +58,11 @@ export function lintFeatureCollection(
   ctx: LintContext,
   path: Path,
 ): LintResultGroup {
-  const g = resultGroup("feature-collection", ctx, path);
+  const g = resultGroup(
+    "feature-collection",
+    withScope(ctx, { parent: target }),
+    path,
+  );
 
   if (!g.check(fcIsObject, target)) return g.build();
   const fc = target as Record<string, unknown>;
@@ -77,7 +84,7 @@ export function lintFeature(
   ctx: LintContext,
   path: Path,
 ): LintResultGroup {
-  const g = resultGroup("feature", ctx, path);
+  const g = resultGroup("feature", withScope(ctx, { parent: target }), path);
 
   if (!g.check(featureIsObject, target)) return g.build();
   const f = target as Record<string, unknown>;

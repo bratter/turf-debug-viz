@@ -20,7 +20,7 @@ export function lintLineString(
   const g = resultGroup("line", ctx, path);
   if (!g.check(lineIsArray, target)) return g.build();
   g.checkAll("positions", lintPosition, target as unknown[], {
-    collapse: ctx.settings.collapsePositions ?? true,
+    collapse: ctx.settings.collapsePositions,
   });
   return g.build();
 }

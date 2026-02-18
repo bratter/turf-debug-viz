@@ -10,11 +10,15 @@ export interface LintSettings {
   /** Only run lints matching these tags (all tags if unset) */
   tags?: Tag[];
   /** Collapse position arrays into summary results (default: true) */
-  collapsePositions?: boolean;
+  collapsePositions: boolean;
+  /** Emit informational results when a lint is skipped (default: false) */
+  infoOnSkip: boolean;
 }
 
-/** Per-scope options that cascade to children via {@link withScope} */
-export interface ScopeOptions {
+/** Per-scope data that cascade to children via {@link withScope} */
+export interface Scope {
+  /** The parent GeoJson object to enable lints to backtrack */
+  parent?: unknown;
   /** Collapse bulk array checks into summary results in this scope */
   collapse?: boolean;
 }
@@ -26,7 +30,7 @@ export interface LintContext {
   /** Shared mutable state for cross-check coordination (keyed by symbols) */
   readonly state: Record<symbol, unknown>;
   /** Per-scope options, shallow-copied when narrowing */
-  readonly scope: ScopeOptions;
+  readonly scope: Scope;
 }
 
 /** Lint severity levels */
@@ -48,7 +52,7 @@ export type Tag = "Schema" | "Geometry";
 export type TestFn<T = unknown> = (
   target: T,
   ctx: LintContext,
-) => string | undefined;
+) => string | boolean;
 
 /**
  * The callback function that builds a LintGroup.
@@ -117,25 +121,33 @@ export interface ResultGroupBuilder {
   readonly ctx: LintContext;
   /** The resolved path of this builder. */
   readonly path: Path;
-  /**
-   * Run a lint against a target, push the result, and return whether it passed.
-   *
-   * When a segment is provided (string or number), accesses
-   * `target[segment]` and appends the segment to the path.
-   */
+  /** Run a lint directly against a target value. */
+  check<T = unknown>(lint: Lint<T>, target: T): boolean;
+  /** Run a lint against an object property (`target[segment]`). */
   check<T = unknown>(
-    lint: Lint<T>,
-    target: unknown,
-    segment?: string | number,
+    lint: Lint<T | undefined>,
+    target: Record<string, T>,
+    segment: string,
   ): boolean;
-  /**
-   * Run a lint against a target and return whether it passed, without
-   * pushing any result. Same value resolution as {@link check}.
-   */
+  /** Run a lint against an array element (`target[segment]`). */
+  check<T = unknown>(
+    lint: Lint<T | undefined>,
+    target: T[],
+    segment: number,
+  ): boolean;
+  /** Run a lint directly against a target value (no result pushed). */
+  test<T = unknown>(lint: Lint<T>, target: T): boolean;
+  /** Run a lint against an object property (`target[segment]`, no result pushed). */
   test<T = unknown>(
-    lint: Lint<T>,
-    target: unknown,
-    segment?: string | number,
+    lint: Lint<T | undefined>,
+    target: Record<string, T>,
+    segment: string,
+  ): boolean;
+  /** Run a lint against an array element (`target[segment]`, no result pushed). */
+  test<T = unknown>(
+    lint: Lint<T | undefined>,
+    target: T[],
+    segment: number,
   ): boolean;
   /** Run a lint or group function against every element in an array, wrapping results in a named group. */
   checkAll<T = unknown>(
@@ -144,13 +156,16 @@ export interface ResultGroupBuilder {
     target: T[],
     options?: { collapse?: boolean; segment?: string | number },
   ): void;
-  /**
-   * Call a group function and add the returned group as a child.
-   *
-   * When a segment is provided (string or number), accesses
-   * `target[segment]` and appends the segment to the child path.
-   */
-  group<T = unknown>(fn: GroupFn, target: T, segment?: string | number): void;
+  /** Call a group function directly against a target value. */
+  group<T = unknown>(fn: GroupFn<T>, target: T): void;
+  /** Call a group function against an object property (`target[segment]`). */
+  group<T = unknown>(
+    fn: GroupFn<T>,
+    target: Record<string, T>,
+    segment: string,
+  ): void;
+  /** Call a group function against an array element (`target[segment]`). */
+  group<T = unknown>(fn: GroupFn<T>, target: T[], segment: number): void;
   /** Push pre-built results or child groups. Undefined values are silently ignored. */
   add(...child: (LintResult | LintResultGroup | undefined)[]): void;
   /** Finalize and return the result group. */

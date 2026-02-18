@@ -2,7 +2,7 @@ import {
   Path,
   LintContext,
   LintSettings,
-  ScopeOptions,
+  Scope,
   ResultGroupBuilder,
   LintResult,
   LintResultGroup,
@@ -11,15 +11,22 @@ import {
   Severity,
 } from "./types.ts";
 
+export const DEFAULT_SETTINGS: LintSettings = {
+  collapsePositions: true,
+  infoOnSkip: false,
+};
+
 /** Create a fresh LintContext with optional user settings. */
-export function createContext(settings: LintSettings = {}): LintContext {
+export function createContext(
+  settings: LintSettings = DEFAULT_SETTINGS,
+): LintContext {
   return { settings, state: {}, scope: {} };
 }
 
 /** Shallow-copy scope options, preserving shared state by reference. */
 export function withScope(
   ctx: LintContext,
-  overrides: Partial<ScopeOptions>,
+  overrides: Partial<Scope>,
 ): LintContext {
   return { ...ctx, scope: { ...ctx.scope, ...overrides } };
 }
@@ -27,8 +34,8 @@ export function withScope(
 /**
  * Resolve value and path from target + segment.
  *
- * When a segment is provided (string or number), accesses target[segment]
- * and appends the segment to the path. No segment: target and path unchanged.
+ * When a segment is provided, accesses target[segment] and appends the
+ * segment to the path. No segment: target and path pass through unchanged.
  */
 function resolve(
   target: unknown,
@@ -44,14 +51,15 @@ function resolve(
 }
 
 /** Run a lint's test function, returning the result. */
-function runLint(
-  lint: Lint,
-  value: unknown,
+function runLint<T = unknown>(
+  lint: Lint<T>,
+  value: T,
   ctx: LintContext,
-): { passed: boolean; message?: string } {
-  if (lint.optional && value === undefined) return { passed: true };
+): { passed: boolean; skipped: boolean; message?: string } {
+  if (lint.optional && value === undefined)
+    return { passed: true, skipped: false };
 
-  let message: string | undefined;
+  let message: string | boolean;
   try {
     message = lint.test(value, ctx);
   } catch (err) {
@@ -61,9 +69,9 @@ function runLint(
         : "Lint threw an unknown error";
   }
 
-  // Loose equality: null or undefined from the test indicates a pass
-  const passed = message == null;
-  return { passed, message: message ?? undefined };
+  if (typeof message === "string")
+    return { passed: false, skipped: false, message };
+  return { passed: true, skipped: !message };
 }
 
 /**
@@ -86,23 +94,46 @@ export function resultGroup(
   return {
     ctx,
     path,
-    test(lint: Lint, target: unknown, segment?: string | number): boolean {
+    test<T = unknown>(
+      lint: Lint<T>,
+      target: T,
+      segment?: string | number,
+    ): boolean {
       const { value } = resolve(target, path, segment);
-      return runLint(lint, value, ctx).passed;
+      return runLint(lint, value as T, ctx).passed;
     },
-    check(lint: Lint, target: unknown, segment?: string | number): boolean {
+    check<T = unknown>(
+      lint: Lint<T>,
+      target: T,
+      segment?: string | number,
+    ): boolean {
       const { value, resolvedPath } = resolve(target, path, segment);
-      const { passed, message } = runLint(lint, value, ctx);
+      const { passed, skipped, message } = runLint(lint, value as T, ctx);
 
-      results.push({
-        name: lint.name,
-        path: resolvedPath,
-        description: lint.description,
-        severity: lint.severity,
-        tag: lint.tag,
-        message,
-        passed,
-      });
+      if (skipped) {
+        if (ctx.settings.infoOnSkip) {
+          results.push({
+            name: "skipped",
+            path: resolvedPath,
+            description:
+              "Skipping lint without error, usually due to a failed precondition",
+            severity: Severity.Info,
+            tag: lint.tag,
+            message: `Lint ${lint.name} was skipped`,
+            passed: true,
+          });
+        }
+      } else {
+        results.push({
+          name: lint.name,
+          path: resolvedPath,
+          description: lint.description,
+          severity: lint.severity,
+          tag: lint.tag,
+          message,
+          passed,
+        });
+      }
 
       return passed;
     },
@@ -119,7 +150,8 @@ export function resultGroup(
         if (typeof lintOrFn === "function") {
           sub.group(lintOrFn as GroupFn, target, i);
         } else {
-          sub.check(lintOrFn, target, i);
+          // Cast appropriate as we know we are in bounds
+          sub.check(lintOrFn as Lint<T | undefined>, target, i);
         }
       }
 
@@ -141,9 +173,7 @@ export function resultGroup(
         } else {
           // Some failed — flatten and keep only failures
           const flat = flattenLintResult(built);
-          const failures = flat.results.filter(
-            (r) => !r.passed,
-          );
+          const failures = flat.results.filter((r) => !r.passed);
           results.push({
             ...built,
             results: failures,

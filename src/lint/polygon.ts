@@ -21,7 +21,7 @@ export function lintLinearRing(
   const g = resultGroup("ring", ctx, path);
   if (!g.check(ringIsArray, target)) return g.build();
   g.checkAll("positions", lintPosition, target as unknown[], {
-    collapse: ctx.settings.collapsePositions ?? true,
+    collapse: ctx.settings.collapsePositions,
   });
   return g.build();
 }

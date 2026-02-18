@@ -9,62 +9,69 @@ import { makeArrayLint } from "./helpers.ts";
 
 const positionIsArray = makeArrayLint("position", { ref: "RFC7946 3.1.1" });
 
-const positionMinLength: Lint = {
+const positionMinLength: Lint<unknown[]> = {
   name: "position-min-length",
   description: "A position MUST have at least 2 elements (RFC7946 3.1.1)",
   severity: Severity.Error,
   tag: "Schema",
-  test(target: unknown) {
-    const len = (target as unknown[]).length;
-    if (len < 2)
+  test(target) {
+    const len = target.length;
+    if (len < 2) {
       return `Expected at least 2 elements (longitude, latitude), received ${len}`;
+    }
+    return true;
   },
 };
 
-const positionMaxLength: Lint = {
+const positionMaxLength: Lint<unknown[]> = {
   name: "position-max-length",
   description:
     "A position SHOULD NOT have more than 3 elements (RFC7946 3.1.1)",
   severity: Severity.Warn,
   tag: "Schema",
-  test(target: unknown) {
-    const len = (target as unknown[]).length;
-    if (len > 3)
+  test(target) {
+    const len = target.length;
+    if (len > 3) {
       return `Positions SHOULD NOT have more than 3 elements (RFC7946 3.1.1), received ${len}`;
+    }
+    return true;
   },
 };
 
-const positionElements: Lint = {
+const positionElements: Lint<unknown[]> = {
   name: "position-elements",
   description: "All position elements MUST be numbers (RFC7946 3.1.1)",
   severity: Severity.Error,
   tag: "Schema",
-  test(target: unknown) {
-    const arr = target as unknown[];
+  test(target) {
+    const arr = target;
     const bad = arr
       .map((v, i) => [v, i] as const)
       .filter(([v]) => typeof v !== "number");
+
     if (bad.length > 0) {
       const details = bad.map(([v, i]) => `[${i}]: ${typeof v}`).join(", ");
       return `Non-numeric elements: ${details}`;
     }
+    return true;
   },
 };
 
 const DIM_KEY = Symbol("dimensionality");
 
-const positionDimensionality: Lint = {
+const positionDimensionality: Lint<unknown[]> = {
   name: "position-dimensionality",
   description: "All positions in a geometry MUST have the same dimensionality",
   severity: Severity.Error,
   tag: "Geometry",
-  test(target: unknown, ctx) {
-    const len = (target as unknown[]).length;
+  test(target, ctx) {
+    const len = target.length;
     if (ctx.state[DIM_KEY] === undefined) {
       ctx.state[DIM_KEY] = len;
     } else if (len !== ctx.state[DIM_KEY]) {
       return `Expected ${ctx.state[DIM_KEY]} elements to match other positions, received ${len}`;
     }
+    return true;
   },
 };
 
@@ -75,9 +82,11 @@ export function lintPosition(
 ): LintResultGroup {
   const g = resultGroup("position", ctx, path);
   if (!g.check(positionIsArray, target)) return g.build();
-  g.check(positionMinLength, target);
-  g.check(positionMaxLength, target);
-  g.check(positionElements, target);
-  g.check(positionDimensionality, target);
+  const arr = target as unknown[];
+
+  g.check(positionMinLength, arr);
+  g.check(positionMaxLength, arr);
+  g.check(positionElements, arr);
+  g.check(positionDimensionality, arr);
   return g.build();
 }

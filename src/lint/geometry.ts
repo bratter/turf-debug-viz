@@ -2,7 +2,13 @@
  * Geometry lints.
  */
 
-import type { LintContext, LintResultGroup, Path } from "./types.ts";
+import {
+  Severity,
+  type Lint,
+  type LintContext,
+  type LintResultGroup,
+  type Path,
+} from "./types.ts";
 import {
   GEOMETRY_TYPES,
   POINT,
@@ -13,8 +19,13 @@ import {
   MULTI_POLYGON,
   GEOMETRY_COLLECTION,
 } from "./const.ts";
-import { resultGroup } from "./builder.ts";
-import { makeArrayLint, makeObjectLint, makeTypeLint } from "./helpers.ts";
+import { resultGroup, withScope } from "./builder.ts";
+import {
+  isRecord,
+  makeArrayLint,
+  makeObjectLint,
+  makeTypeLint,
+} from "./helpers.ts";
 import { lintBbox } from "./bbox.ts";
 import { lintPosition } from "./position.ts";
 import { lintMultiPoint } from "./point.ts";
@@ -29,13 +40,26 @@ const typeIsGeometry = makeTypeLint(
   "a Geometry type",
   "RFC7946 3.1",
 );
+const noParentCollection: Lint = {
+  name: "no-parent-collection",
+  description: "GeometryCollections SHOULD not be nested (RFC7946 3.1.8)",
+  tag: "Schema",
+  severity: Severity.Warn,
+  test(_, ctx) {
+    const parent = ctx.scope.parent;
+    if (isRecord(parent) && parent.type === GEOMETRY_COLLECTION) {
+      return "GeometryCollection has a parent GeometryCollection, but SHOULD not be nested";
+    }
+    return true;
+  },
+};
 
 export function lintGeometry(
   target: unknown,
   ctx: LintContext,
   path: Path,
 ): LintResultGroup {
-  const g = resultGroup("geometry", ctx, path);
+  const g = resultGroup("geometry", withScope(ctx, { parent: target }), path);
 
   if (!g.check(geometryIsObject, target)) return g.build();
   const geom = target as Record<string, unknown>;
@@ -63,6 +87,7 @@ export function lintGeometry(
       g.group(lintMultiPolygon, geom, "coordinates");
       break;
     case GEOMETRY_COLLECTION: {
+      g.check(noParentCollection, geom);
       if (!g.check(geometriesIsArray, geom, "geometries")) break;
       g.checkAll("geometries", lintGeometry, geom.geometries as unknown[], {
         segment: "geometries",

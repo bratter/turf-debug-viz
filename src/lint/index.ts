@@ -9,7 +9,7 @@
 
 import type { LintResultGroup, LintSettings } from "./types.ts";
 import { GEOJSON_TYPES, FEATURE, FEATURE_COLLECTION } from "./const.ts";
-import { createContext, resultGroup } from "./builder.ts";
+import { createContext, DEFAULT_SETTINGS, resultGroup } from "./builder.ts";
 import { makeObjectLint, makeTypeLint } from "./helpers.ts";
 import { lintFeature, lintFeatureCollection } from "./feature.ts";
 import { lintGeometry } from "./geometry.ts";
@@ -29,9 +29,9 @@ export {
 
 export function lint(
   target: unknown,
-  settings: LintSettings = {},
+  settings: Partial<LintSettings> = {},
 ): LintResultGroup {
-  const ctx = createContext(settings);
+  const ctx = createContext({ ...DEFAULT_SETTINGS, ...settings });
   const g = resultGroup("document", ctx, []);
 
   if (!g.check(rootIsObject, target)) return g.build();
