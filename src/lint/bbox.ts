@@ -59,7 +59,7 @@ const bboxDimensionality: Lint<number[]> = {
   description:
     "A bounding box MUST be an array of length 2*n where n is the coordinate dimensionality (RFC7946 5)",
   severity: Severity.Error,
-  tag: "Schema",
+  tag: "Geometry",
   test(target, ctx) {
     // Any error state where we can't get the first valid coordinate except
     // where a Feature has a null geometry is an error
@@ -145,6 +145,93 @@ const bboxDimensionality: Lint<number[]> = {
   },
 };
 
+const bboxLongitudeRange: Lint<number[]> = {
+  name: "bbox-longitude-range",
+  description: "Bbox longitudes MUST be in [-180, 180] (RFC7946 5)",
+  severity: Severity.Error,
+  tag: "Geometry",
+  test(target) {
+    const half = target.length / 2;
+    const west = target[0]!,
+      east = target[half]!;
+    const bad: string[] = [];
+    if (west < -180 || west > 180) bad.push(`west=${west}`);
+    if (east < -180 || east > 180) bad.push(`east=${east}`);
+    if (bad.length > 0)
+      return `Longitude out of [-180, 180]: ${bad.join(", ")}`;
+    return true;
+  },
+};
+
+const bboxLatitudeRange: Lint<number[]> = {
+  name: "bbox-latitude-range",
+  description: "Bbox latitudes MUST be in [-90, 90] (RFC7946 5)",
+  severity: Severity.Error,
+  tag: "Geometry",
+  test(target) {
+    const half = target.length / 2;
+    const south = target[1]!,
+      north = target[half + 1]!;
+    const bad: string[] = [];
+    if (south < -90 || south > 90) bad.push(`south=${south}`);
+    if (north < -90 || north > 90) bad.push(`north=${north}`);
+    if (bad.length > 0) return `Latitude out of [-90, 90]: ${bad.join(", ")}`;
+    return true;
+  },
+};
+
+const bboxLatitudeOrder: Lint<number[]> = {
+  name: "bbox-latitude-order",
+  description: "South latitude MUST NOT exceed north latitude (RFC7946 5)",
+  severity: Severity.Error,
+  tag: "Geometry",
+  test(target) {
+    const half = target.length / 2;
+    const south = target[1]!,
+      north = target[half + 1]!;
+    if (south > north)
+      return `South latitude (${south}) exceeds north latitude (${north})`;
+    return true;
+  },
+};
+
+const bboxAntimeridian: Lint<number[]> = {
+  name: "bbox-antimeridian",
+  description: "Bbox crosses the antimeridian (west > east) (RFC7946 5)",
+  severity: Severity.Info,
+  tag: "Geometry",
+  optional: true,
+  test(target) {
+    const half = target.length / 2;
+    const west = target[0]!,
+      east = target[half]!;
+    if (west > east)
+      return `Bbox crosses the antimeridian: west=${west}, east=${east}`;
+    return true;
+  },
+};
+
+const bboxPolarCap: Lint<number[]> = {
+  name: "bbox-polar-cap",
+  description:
+    "Full polar cap bounding boxes SHOULD use -180/180 longitude (RFC7946 5)",
+  severity: Severity.Warn,
+  tag: "Geometry",
+  test(target) {
+    const half = target.length / 2;
+    const west = target[0],
+      south = target[1];
+    const east = target[half],
+      north = target[half + 1];
+    if (south !== -90 && north !== 90) return true; // not polar
+    // Only warn if lngs are near but not exactly at -180/180
+    if ((west === -180 && east === 180) || (west !== -180 && east !== 180))
+      return true;
+    // One is at the boundary but not the other
+    return `Polar cap bbox has partial -180/180 longitude: west=${west}, east=${east}`;
+  },
+};
+
 export function lintBbox(
   bbox: unknown,
   ctx: LintContext,
@@ -155,9 +242,20 @@ export function lintBbox(
   const g = resultGroup("bbox", ctx, path);
 
   if (!g.check(bboxIsArray, bbox)) return g.build();
-  g.check(bboxLength, bbox as unknown[]);
-  g.check(bboxElements, bbox as unknown[]);
-  g.check(bboxDimensionality, bbox as number[]);
+  const arr = bbox as unknown[];
+  g.check(bboxLength, arr);
+  g.check(bboxElements, arr);
+
+  // Geometry lints require basic structure correctness
+  if (g.hasSchemaError()) return g.build();
+
+  const nums = arr as number[];
+  g.check(bboxDimensionality, nums);
+  g.check(bboxLongitudeRange, nums);
+  g.check(bboxLatitudeRange, nums);
+  g.check(bboxLatitudeOrder, nums);
+  g.check(bboxAntimeridian, nums);
+  g.check(bboxPolarCap, nums);
 
   return g.build();
 }

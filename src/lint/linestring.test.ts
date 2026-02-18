@@ -47,6 +47,37 @@ test("lintLineString", (t) => {
     t.end();
   });
 
+  t.test("geometry", (t) => {
+    t.test("empty array fails line-min-length", (t) => {
+      const g = lintLineString([], createContext(), []);
+      t.notOk(g.passed);
+      t.notOk(find(g, "line-min-length")!.passed);
+      t.end();
+    });
+
+    t.test("single position fails line-min-length", (t) => {
+      const g = lintLineString([[0, 0]], createContext(), []);
+      t.notOk(g.passed);
+      t.notOk(find(g, "line-min-length")!.passed);
+      t.end();
+    });
+
+    t.test("two positions passes line-min-length", (t) => {
+      const g = lintLineString(
+        [
+          [0, 0],
+          [1, 1],
+        ],
+        createContext(),
+        [],
+      );
+      t.ok(g.passed);
+      t.end();
+    });
+
+    t.end();
+  });
+
   t.end();
 });
 

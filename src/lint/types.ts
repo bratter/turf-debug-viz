@@ -121,6 +121,15 @@ export interface ResultGroupBuilder {
   readonly ctx: LintContext;
   /** The resolved path of this builder. */
   readonly path: Path;
+  /**
+   * Does the builder currently pass given the severity level.
+   *
+   * Restricts to the passed tag if one is provided. Level defaults to Error.
+   * Useful for gating subsequent lints if Schema lints fail.
+   */
+  hasFailure(tag?: Tag, atOrAbove?: Severity): boolean;
+  /** Special case of hasFailure for Schema errors */
+  hasSchemaError(): boolean;
   /** Run a lint directly against a target value. */
   check<T = unknown>(lint: Lint<T>, target: T): boolean;
   /** Run a lint against an object property (`target[segment]`). */

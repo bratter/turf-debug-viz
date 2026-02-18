@@ -2,7 +2,7 @@ import test from "tape";
 import { lintLinearRing, lintPolygon, lintMultiPolygon } from "./polygon.ts";
 import { createContext } from "./builder.ts";
 import { find } from "./test/helpers.ts";
-import type { LintResultGroup } from "./types.ts";
+import type { LintResult, LintResultGroup } from "./types.ts";
 
 const ctx = createContext();
 
@@ -43,6 +43,164 @@ test("lintLinearRing", (t) => {
       const positions = find(result, "positions") as LintResultGroup;
       t.ok(positions, "has positions sub-group");
       t.notOk(positions.passed);
+      t.end();
+    });
+
+    t.end();
+  });
+
+  t.test("geometry", (t) => {
+    t.test("3 positions fails ring-min-length", (t) => {
+      const result = lintLinearRing(
+        [
+          [0, 0],
+          [1, 0],
+          [0, 0],
+        ],
+        createContext(),
+        ["coordinates", 0],
+      );
+      t.notOk(result.passed);
+      t.notOk(find(result, "ring-min-length")!.passed);
+      t.end();
+    });
+
+    t.test("unclosed ring fails ring-closed", (t) => {
+      const result = lintLinearRing(
+        [
+          [0, 0],
+          [1, 0],
+          [1, 1],
+          [0, 1],
+        ],
+        createContext(),
+        ["coordinates", 0],
+      );
+      t.notOk(result.passed);
+      const r = find(result, "ring-closed") as LintResult;
+      t.notOk(r.passed);
+      t.ok(r.message, "has failure message");
+      t.end();
+    });
+
+    t.test("2D closed ring passes ring-closed", (t) => {
+      const result = lintLinearRing(
+        [
+          [0, 0],
+          [1, 0],
+          [1, 1],
+          [0, 0],
+        ],
+        createContext(),
+        ["coordinates", 0],
+      );
+      const r = find(result, "ring-closed");
+      t.ok(!r || r.passed, "ring-closed passes for 2D ring");
+      t.end();
+    });
+
+    t.test("3D closed ring passes", (t) => {
+      const result = lintLinearRing(
+        [
+          [0, 0, 10],
+          [1, 0, 10],
+          [1, 1, 10],
+          [0, 0, 10],
+        ],
+        createContext(),
+        ["coordinates", 0],
+      );
+      const r = find(result, "ring-closed");
+      t.ok(!r || r.passed, "ring-closed passes for 3D ring");
+      t.end();
+    });
+
+    t.test("3D ring closed in 2D but not 3D fails", (t) => {
+      const result = lintLinearRing(
+        [
+          [0, 0, 10],
+          [1, 0, 10],
+          [1, 1, 10],
+          [0, 0, 20],
+        ],
+        createContext(),
+        ["coordinates", 0],
+      );
+      t.notOk(result.passed);
+      const r = find(result, "ring-closed") as LintResult;
+      t.notOk(r.passed);
+      t.end();
+    });
+
+    t.test("CCW exterior ring (index 0) passes", (t) => {
+      // CCW: 0,0 → 1,0 → 1,1 → 0,0
+      const result = lintLinearRing(
+        [
+          [0, 0],
+          [1, 0],
+          [1, 1],
+          [0, 0],
+        ],
+        createContext(),
+        ["coordinates", 0],
+      );
+      const r = find(result, "ring-winding-exterior");
+      t.ok(!r || r.passed, "ring-winding-exterior passes for CCW ring");
+      t.end();
+    });
+
+    t.test("CW exterior ring (index 0) fails", (t) => {
+      // CW: 0,0 → 1,1 → 1,0 → 0,0
+      const result = lintLinearRing(
+        [
+          [0, 0],
+          [1, 1],
+          [1, 0],
+          [0, 0],
+        ],
+        createContext(),
+        ["coordinates", 0],
+      );
+      t.notOk(result.passed);
+      const r = find(result, "ring-winding-exterior") as LintResult;
+      t.notOk(r.passed);
+      t.equal(r.message, "Expected counterclockwise winding, got clockwise");
+      t.end();
+    });
+
+    t.test("CW hole (index 1) passes", (t) => {
+      // CW: 0,0 → 1,1 → 1,0 → 0,0
+      const result = lintLinearRing(
+        [
+          [0, 0],
+          [1, 1],
+          [1, 0],
+          [0, 0],
+        ],
+        createContext(),
+        ["coordinates", 1],
+      );
+      const r = find(result, "ring-winding-interior");
+      t.ok(!r || r.passed, "ring-winding-interior passes for CW hole");
+      t.end();
+    });
+
+    t.test("CCW hole (index 1) fails", (t) => {
+      // CCW: 0,0 → 1,0 → 1,1 → 0,0
+      const result = lintLinearRing(
+        [
+          [0, 0],
+          [1, 0],
+          [1, 1],
+          [0, 0],
+        ],
+        createContext(),
+        ["coordinates", 1],
+      );
+      t.notOk(result.passed);
+      const r = find(result, "ring-winding-interior") as LintResult;
+      t.notOk(r.passed);
+      t.equal(r.message, "Expected clockwise winding, got counterclockwise");
       t.end();
     });
 

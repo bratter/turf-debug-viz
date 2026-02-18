@@ -75,6 +75,31 @@ const positionDimensionality: Lint<unknown[]> = {
   },
 };
 
+const longitudeRange: Lint<number[]> = {
+  name: "longitude-range",
+  description: "Longitude (index 0) MUST be in [-180, 180] (RFC7946 3.1.1)",
+  severity: Severity.Error,
+  tag: "Geometry",
+  test(target) {
+    const lng = target[0]!;
+    if (lng < -180 || lng > 180)
+      return `Longitude ${lng} is outside [-180, 180]`;
+    return true;
+  },
+};
+
+const latitudeRange: Lint<number[]> = {
+  name: "latitude-range",
+  description: "Latitude (index 1) MUST be in [-90, 90] (RFC7946 3.1.1)",
+  severity: Severity.Error,
+  tag: "Geometry",
+  test(target) {
+    const lat = target[1]!;
+    if (lat < -90 || lat > 90) return `Latitude ${lat} is outside [-90, 90]`;
+    return true;
+  },
+};
+
 export function lintPosition(
   target: unknown,
   ctx: LintContext,
@@ -88,5 +113,13 @@ export function lintPosition(
   g.check(positionMaxLength, arr);
   g.check(positionElements, arr);
   g.check(positionDimensionality, arr);
+
+  // Geometry lints require valid structure
+  if (g.hasSchemaError()) return g.build();
+
+  const pos = arr as number[];
+  g.check(longitudeRange, pos);
+  g.check(latitudeRange, pos);
+
   return g.build();
 }

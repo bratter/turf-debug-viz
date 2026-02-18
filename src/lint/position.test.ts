@@ -60,5 +60,63 @@ test("lintPosition", (t) => {
     t.end();
   });
 
+  t.test("geometry", (t) => {
+    t.test("valid position [0, 0] passes", (t) => {
+      const g = lintPosition([0, 0], createContext(), []);
+      t.ok(g.passed);
+      t.end();
+    });
+
+    t.test("extremes [-180, -90] pass", (t) => {
+      const g = lintPosition([-180, -90], createContext(), []);
+      t.ok(g.passed);
+      t.end();
+    });
+
+    t.test("extremes [180, 90] pass", (t) => {
+      const g = lintPosition([180, 90], createContext(), []);
+      t.ok(g.passed);
+      t.end();
+    });
+
+    t.test("longitude > 180 fails", (t) => {
+      const g = lintPosition([181, 0], createContext(), []);
+      t.notOk(g.passed);
+      t.notOk(find(g, "longitude-range")!.passed);
+      t.end();
+    });
+
+    t.test("longitude < -180 fails", (t) => {
+      const g = lintPosition([-181, 0], createContext(), []);
+      t.notOk(g.passed);
+      t.notOk(find(g, "longitude-range")!.passed);
+      t.end();
+    });
+
+    t.test("latitude > 90 fails", (t) => {
+      const g = lintPosition([0, 91], createContext(), []);
+      t.notOk(g.passed);
+      t.notOk(find(g, "latitude-range")!.passed);
+      t.end();
+    });
+
+    t.test("latitude < -90 fails", (t) => {
+      const g = lintPosition([0, -91], createContext(), []);
+      t.notOk(g.passed);
+      t.notOk(find(g, "latitude-range")!.passed);
+      t.end();
+    });
+
+    t.test("schema failure skips geometry lints", (t) => {
+      const g = lintPosition([0, "a"], createContext(), []);
+      t.notOk(g.passed);
+      t.notOk(find(g, "longitude-range"), "no longitude-range result");
+      t.notOk(find(g, "latitude-range"), "no latitude-range result");
+      t.end();
+    });
+
+    t.end();
+  });
+
   t.end();
 });

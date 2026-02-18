@@ -9,6 +9,7 @@ import {
   Lint,
   GroupFn,
   Severity,
+  Tag,
 } from "./types.ts";
 
 export const DEFAULT_SETTINGS: LintSettings = {
@@ -74,6 +75,19 @@ function runLint<T = unknown>(
   return { passed: true, skipped: !message };
 }
 
+function hasFailing(results: (LintResult | LintResultGroup)[], atOrAbove: Severity, tag?: Tag): boolean {
+  for (const r of results) {
+    if (r.passed) continue;
+    if ("results" in r) {
+      if (hasFailing(r.results, atOrAbove, tag)) return true;
+    } else {
+      if (tag && r.tag !== tag) continue;
+      if (r.severity >= atOrAbove) return true;
+    }
+  }
+  return false;
+}
+
 /**
  * Creates a builder for assembling lint results into a named group.
  *
@@ -94,6 +108,12 @@ export function resultGroup(
   return {
     ctx,
     path,
+    hasFailure(tag?: Tag, atOrAbove: Severity = Severity.Error): boolean {
+      return hasFailing(results, atOrAbove, tag);
+    },
+    hasSchemaError(): boolean {
+      return hasFailing(results, Severity.Error, "Schema");
+    },
     test<T = unknown>(
       lint: Lint<T>,
       target: T,
