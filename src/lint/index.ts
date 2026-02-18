@@ -7,9 +7,9 @@
  * performance.
  */
 
-import type { LintResultGroup, LintSettings } from "./types.ts";
+import { Severity, type LintResultGroup, type LintSettings } from "./types.ts";
 import { GEOJSON_TYPES, FEATURE, FEATURE_COLLECTION } from "./const.ts";
-import { createContext, DEFAULT_SETTINGS, resultGroup } from "./builder.ts";
+import { createContext, DEFAULT_SETTINGS, filterLintResult, flattenLintResult, resultGroup } from "./builder.ts";
 import { makeObjectLint, makeTypeLint } from "./helpers.ts";
 import { lintFeature, lintFeatureCollection } from "./feature.ts";
 import { lintGeometry } from "./geometry.ts";
@@ -23,10 +23,23 @@ const typeIsGeoJson = makeTypeLint(
 );
 
 export {
-  filterLintResult as filterResultGroup,
-  flattenLintResult as flattenResultGroup,
+  filterLintResult,
+  flattenLintResult,
 } from "./builder.ts";
 
+export function lintFlat(target: unknown, severity: Severity = Severity.Info, settings: Partial<LintSettings> = {}): LintResultGroup {
+  const results = lint(target, settings);
+  const filtered = filterLintResult(results, r => r.passed && r.severity >= severity);
+
+  return flattenLintResult(filtered);
+}
+
+/**
+ * Lint a GeoJSON object.
+ *
+ * Produces a lint tree for maximium flexibility in processing results.
+ * Consider using {@link lint} 
+ */
 export function lint(
   target: unknown,
   settings: Partial<LintSettings> = {},

@@ -177,29 +177,48 @@ export function resultGroup(
 
       const built = sub.build();
 
+      // TODO: Consider eliminating general collapse logic and moving it into
+      // position linting only
       if (collapse) {
-        if (built.passed) {
-          // All passed — emit a single summary result
-          const tag = typeof lintOrFn === "function" ? "Schema" : lintOrFn.tag;
-          results.push({
-            name,
+        const leaves = flattenLintResult(built).results as LintResult[];
+
+        // Count passes by tag; failures go straight to output
+        const passByTag = new Map<Tag, number>();
+        const totalByTag = new Map<Tag, number>();
+        const collapsed: LintResult[] = [];
+
+        for (const r of leaves) {
+          totalByTag.set(r.tag, (totalByTag.get(r.tag) ?? 0) + 1);
+          if (r.passed) {
+            passByTag.set(r.tag, (passByTag.get(r.tag) ?? 0) + 1);
+          } else {
+            collapsed.push(r);
+          }
+        }
+
+        // Per-tag passing summaries
+        const summaries: LintResult[] = [];
+        for (const [tag, total] of totalByTag) {
+          const passing = passByTag.get(tag) ?? 0;
+          summaries.push({
+            name: `${name}-${tag.toLowerCase()}`,
             path: built.path,
-            description: `All ${target.length} ${name} valid`,
+            description: `${passing} of ${total} ${tag} lints passed across ${target.length} ${name}`,
             severity: Severity.Info,
             tag,
             passed: true,
-            message: undefined,
-          } satisfies LintResult);
-        } else {
-          // Some failed — flatten and keep only failures
-          const flat = flattenLintResult(built);
-          const failures = flat.results.filter((r) => !r.passed);
-          results.push({
-            ...built,
-            results: failures,
-            children: failures.length,
           });
         }
+
+        results.push({
+          name,
+          path: built.path,
+          results: [...summaries, ...collapsed],
+          severity: built.severity,
+          passed: built.passed,
+          children: summaries.length + collapsed.length,
+          total: built.total,
+        });
       } else {
         results.push(built);
       }
