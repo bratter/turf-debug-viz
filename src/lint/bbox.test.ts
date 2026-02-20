@@ -245,12 +245,13 @@ test("lintBbox", (t) => {
       t.end();
     });
 
-    t.test("mixed polar cap [-180, 0, 90, 90] warns", (t) => {
-      const g = lintBbox([-180, 0, 90, 90], ctx, [])!;
+    t.test("polar cap with non-canonical full span warns", (t) => {
+      // west=0, east=360 spans 360 degrees but isn't -180/180
+      const g = lintBbox([0, 0, 360, 90], ctx, [])!;
       const r = find(g, "bbox-polar-cap") as LintResult;
       t.ok(r, "has bbox-polar-cap result");
       t.notOk(r.passed, "bbox-polar-cap fails");
-      t.ok(r.message!.includes("Polar cap"), "has polar cap message");
+      t.ok(r.message!.includes("west=-180"), "suggests canonical form");
       t.end();
     });
 

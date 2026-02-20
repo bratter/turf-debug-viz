@@ -232,14 +232,14 @@ test("lintPolygon", (t) => {
     t.test("not an array", (t) => {
       const g = lintPolygon("x", createContext(), []);
       t.notOk(g.passed);
-      t.notOk(find(g, "polygon-is-array")!.passed);
+      t.notOk(find(g, "coordinates-is-array")!.passed);
       t.end();
     });
 
     t.test("missing (undefined)", (t) => {
       const g = lintPolygon(undefined, createContext(), []);
       t.notOk(g.passed);
-      t.notOk(find(g, "polygon-is-array")!.passed);
+      t.notOk(find(g, "coordinates-is-array")!.passed);
       t.end();
     });
 

@@ -44,6 +44,7 @@ Output is a tree of `LintResultGroup` and `LintResult` nodes. Groups carry a `pa
 Collapse reduces noise from bulk array checks (primarily position arrays). It is activated per-`checkAll` via the `collapse` option and cascades to all nested `checkAll` descendants through `scope.collapse`. Once set, collapse cannot be backed out — all nesting below the collapse point is flattened.
 
 When collapse is active on a `checkAll`:
+
 - **All pass**: The entire subtree is replaced with a single summary `LintResult` (e.g., "All 100 positions valid").
 - **Some fail**: The subtree is flattened and only failing leaf results are kept. The group preserves its original `total` so consumers can derive "3 of 100 failed".
 
@@ -71,5 +72,3 @@ The builder's `check` wraps test execution in try-catch. If a test throws, the r
 - If we do this on a string with momoa could give positions, do this by
   replacing path with a context that optionally has the source references
 - If want to extract into own repo, use git subtree split
-- Work on consistency and simplicity in lint helper and lint group naming
-- Add geometry correctness lints (ring closure, winding order, self-intersection, etc.)

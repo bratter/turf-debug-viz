@@ -217,18 +217,17 @@ const bboxPolarCap: Lint<number[]> = {
     "Full polar cap bounding boxes SHOULD use -180/180 longitude (RFC7946 5)",
   severity: Severity.Warn,
   tag: "Geometry",
+  optional: true,
   test(target) {
     const half = target.length / 2;
-    const west = target[0],
-      south = target[1];
-    const east = target[half],
-      north = target[half + 1];
+    const west = target[0]!,
+      south = target[1]!;
+    const east = target[half]!,
+      north = target[half + 1]!;
     if (south !== -90 && north !== 90) return true; // not polar
-    // Only warn if lngs are near but not exactly at -180/180
-    if ((west === -180 && east === 180) || (west !== -180 && east !== 180))
-      return true;
-    // One is at the boundary but not the other
-    return `Polar cap bbox has partial -180/180 longitude: west=${west}, east=${east}`;
+    if (Math.abs(east - west) < 360) return true; // partial polar region
+    if (west === -180 && east === 180) return true; // correct canonical form
+    return `Polar cap bbox should use west=-180, east=180; got west=${west}, east=${east}`;
   },
 };
 

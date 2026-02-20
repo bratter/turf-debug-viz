@@ -9,8 +9,8 @@ import { makeArrayLint } from "./helpers.ts";
 import { lintPosition } from "./position.ts";
 
 const ringIsArray = makeArrayLint("ring", { ref: "RFC7946 3.1.6" });
-const polygonIsArray = makeArrayLint("polygon", { ref: "RFC7946 3.1.6" });
-const coordinatesIsArray = makeArrayLint("coordinates", {
+const polygonCoordsIsArray = makeArrayLint("coordinates", { ref: "RFC7946 3.1.6" });
+const multiPolygonCoordsIsArray = makeArrayLint("coordinates", {
   ref: "RFC7946 3.1.7",
 });
 
@@ -122,7 +122,7 @@ export function lintPolygon(
   path: Path,
 ): LintResultGroup {
   const g = resultGroup("polygon", ctx, path);
-  if (!g.check(polygonIsArray, target)) return g.build();
+  if (!g.check(polygonCoordsIsArray, target)) return g.build();
   g.checkAll("rings", lintLinearRing, target as unknown[]);
 
   return g.build();
@@ -134,7 +134,7 @@ export function lintMultiPolygon(
   path: Path,
 ): LintResultGroup {
   const g = resultGroup("multi-polygon", ctx, path);
-  if (!g.check(coordinatesIsArray, target)) return g.build();
+  if (!g.check(multiPolygonCoordsIsArray, target)) return g.build();
   g.checkAll("polygons", lintPolygon, target as unknown[]);
 
   return g.build();
