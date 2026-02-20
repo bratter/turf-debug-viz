@@ -12,10 +12,7 @@ import {
   Tag,
 } from "./types.ts";
 
-export const DEFAULT_SETTINGS: LintSettings = {
-  collapsePositions: true,
-  infoOnSkip: false,
-};
+export const DEFAULT_SETTINGS: LintSettings = {};
 
 /** Create a fresh LintContext with optional user settings. */
 export function createContext(
@@ -56,9 +53,9 @@ function runLint<T = unknown>(
   lint: Lint<T>,
   value: T,
   ctx: LintContext,
-): { passed: boolean; skipped: boolean; message?: string } {
+): { passed: boolean; message?: string } {
   if (lint.optional && value === undefined)
-    return { passed: true, skipped: false };
+    return { passed: true };
 
   let message: string | boolean;
   try {
@@ -71,8 +68,8 @@ function runLint<T = unknown>(
   }
 
   if (typeof message === "string")
-    return { passed: false, skipped: false, message };
-  return { passed: true, skipped: !message };
+    return { passed: false, message };
+  return { passed: true };
 }
 
 function hasFailing(results: (LintResult | LintResultGroup)[], atOrAbove: Severity, tag?: Tag): boolean {
@@ -103,6 +100,7 @@ export function resultGroup(
   segment?: string | number,
 ): ResultGroupBuilder {
   if (segment != null) path = [...path, segment];
+  const tagList = ctx.settings.tags;
   const results: (LintResult | LintResultGroup)[] = [];
 
   return {
@@ -114,46 +112,26 @@ export function resultGroup(
     hasSchemaError(): boolean {
       return hasFailing(results, Severity.Error, "Schema");
     },
-    test<T = unknown>(
-      lint: Lint<T>,
-      target: T,
-      segment?: string | number,
-    ): boolean {
-      const { value } = resolve(target, path, segment);
-      return runLint(lint, value as T, ctx).passed;
-    },
     check<T = unknown>(
       lint: Lint<T>,
       target: T,
       segment?: string | number,
     ): boolean {
-      const { value, resolvedPath } = resolve(target, path, segment);
-      const { passed, skipped, message } = runLint(lint, value as T, ctx);
+      // Skip without notification if the lint's tag is not in the tag list
+      if (tagList && !tagList.includes(lint.tag)) return true;
 
-      if (skipped) {
-        if (ctx.settings.infoOnSkip) {
-          results.push({
-            name: "skipped",
-            path: resolvedPath,
-            description:
-              "Skipping lint without error, usually due to a failed precondition",
-            severity: Severity.Info,
-            tag: lint.tag,
-            message: `Lint ${lint.name} was skipped`,
-            passed: true,
-          });
-        }
-      } else {
-        results.push({
-          name: lint.name,
-          path: resolvedPath,
-          description: lint.description,
-          severity: lint.severity,
-          tag: lint.tag,
-          message,
-          passed,
-        });
-      }
+      const { value, resolvedPath } = resolve(target, path, segment);
+      const { passed, message } = runLint(lint, value as T, ctx);
+
+      results.push({
+        name: lint.name,
+        path: resolvedPath,
+        description: lint.description,
+        severity: lint.severity,
+        tag: lint.tag,
+        message,
+        passed,
+      });
 
       return passed;
     },
@@ -161,11 +139,9 @@ export function resultGroup(
       name: string,
       lintOrFn: Lint<T> | GroupFn<T>,
       target: T[],
-      options?: { collapse?: boolean; segment?: string | number },
+      options?: { segment?: string | number },
     ) {
-      const collapse = ctx.scope.collapse || options?.collapse || false;
-      const childCtx = collapse ? withScope(ctx, { collapse: true }) : ctx;
-      const sub = resultGroup(name, childCtx, path, options?.segment);
+      const sub = resultGroup(name, ctx, path, options?.segment);
       for (let i = 0; i < target.length; i++) {
         if (typeof lintOrFn === "function") {
           sub.group(lintOrFn as GroupFn, target, i);
@@ -174,54 +150,7 @@ export function resultGroup(
           sub.check(lintOrFn as Lint<T | undefined>, target, i);
         }
       }
-
-      const built = sub.build();
-
-      // TODO: Consider eliminating general collapse logic and moving it into
-      // position linting only
-      if (collapse) {
-        const leaves = flattenLintResult(built).results as LintResult[];
-
-        // Count passes by tag; failures go straight to output
-        const passByTag = new Map<Tag, number>();
-        const totalByTag = new Map<Tag, number>();
-        const collapsed: LintResult[] = [];
-
-        for (const r of leaves) {
-          totalByTag.set(r.tag, (totalByTag.get(r.tag) ?? 0) + 1);
-          if (r.passed) {
-            passByTag.set(r.tag, (passByTag.get(r.tag) ?? 0) + 1);
-          } else {
-            collapsed.push(r);
-          }
-        }
-
-        // Per-tag passing summaries
-        const summaries: LintResult[] = [];
-        for (const [tag, total] of totalByTag) {
-          const passing = passByTag.get(tag) ?? 0;
-          summaries.push({
-            name: `${name}-${tag.toLowerCase()}`,
-            path: built.path,
-            description: `${passing} of ${total} ${tag} lints passed across ${target.length} ${name}`,
-            severity: Severity.Info,
-            tag,
-            passed: true,
-          });
-        }
-
-        results.push({
-          name,
-          path: built.path,
-          results: [...summaries, ...collapsed],
-          severity: built.severity,
-          passed: built.passed,
-          children: summaries.length + collapsed.length,
-          total: built.total,
-        });
-      } else {
-        results.push(built);
-      }
+      results.push(sub.build());
     },
     group(fn: GroupFn, target: unknown, segment?: string | number) {
       const { value, resolvedPath } = resolve(target, path, segment);

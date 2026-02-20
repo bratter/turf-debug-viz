@@ -33,9 +33,7 @@ export function lintLineString(
   const g = resultGroup("line", ctx, path);
   if (!g.check(lineIsArray, target)) return g.build();
   const arr = target as unknown[];
-  g.checkAll("positions", lintPosition, arr, {
-    collapse: ctx.settings.collapsePositions,
-  });
+  g.checkAll("positions", lintPosition, arr);
 
   // Geometry checks require valid structure
   if (g.hasSchemaError()) return g.build();

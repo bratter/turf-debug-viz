@@ -9,18 +9,12 @@ export type Path = (string | number)[];
 export interface LintSettings {
   /** Only run lints matching these tags (all tags if unset) */
   tags?: Tag[];
-  /** Collapse position arrays into summary results (default: true) */
-  collapsePositions: boolean;
-  /** Emit informational results when a lint is skipped (default: false) */
-  infoOnSkip: boolean;
 }
 
 /** Per-scope data that cascade to children via {@link withScope} */
 export interface Scope {
   /** The parent GeoJson object to enable lints to backtrack */
   parent?: unknown;
-  /** Collapse bulk array checks into summary results in this scope */
-  collapse?: boolean;
 }
 
 /** Context threaded through the entire lint tree */
@@ -144,26 +138,12 @@ export interface ResultGroupBuilder {
     target: T[],
     segment: number,
   ): boolean;
-  /** Run a lint directly against a target value (no result pushed). */
-  test<T = unknown>(lint: Lint<T>, target: T): boolean;
-  /** Run a lint against an object property (`target[segment]`, no result pushed). */
-  test<T = unknown>(
-    lint: Lint<T | undefined>,
-    target: Record<string, T>,
-    segment: string,
-  ): boolean;
-  /** Run a lint against an array element (`target[segment]`, no result pushed). */
-  test<T = unknown>(
-    lint: Lint<T | undefined>,
-    target: T[],
-    segment: number,
-  ): boolean;
   /** Run a lint or group function against every element in an array, wrapping results in a named group. */
   checkAll<T = unknown>(
     name: string,
     lintOrFn: Lint<T> | GroupFn<T>,
     target: T[],
-    options?: { collapse?: boolean; segment?: string | number },
+    options?: { segment?: string | number },
   ): void;
   /** Call a group function directly against a target value. */
   group<T = unknown>(fn: GroupFn<T>, target: T): void;

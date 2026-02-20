@@ -18,8 +18,6 @@ export function lintMultiPoint(
 ): LintResultGroup {
   const g = resultGroup("multi-point", ctx, path);
   if (!g.check(coordinatesIsArray, target)) return g.build();
-  g.checkAll("positions", lintPosition, target as unknown[], {
-    collapse: ctx.settings.collapsePositions,
-  });
+  g.checkAll("positions", lintPosition, target as unknown[]);
   return g.build();
 }

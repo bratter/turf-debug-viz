@@ -97,9 +97,7 @@ export function lintLinearRing(
   if (!g.check(ringIsArray, target)) return g.build();
   const arr = target as unknown[];
 
-  g.checkAll("positions", lintPosition, arr, {
-    collapse: ctx.settings.collapsePositions,
-  });
+  g.checkAll("positions", lintPosition, arr);
 
   // Run ring validation after positions are checked
   // The first two don't strictly require schema validity, but we test anyway

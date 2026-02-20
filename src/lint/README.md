@@ -27,7 +27,7 @@ Group functions follow the `GroupFn` signature: `(target, ctx, path) => LintResu
 - `check(lint, target, segment?)` -- run a lint, push the result, return whether it passed. When a segment is provided (string or number), accesses `target[segment]` and appends the segment to the path.
 - `test(lint, target, segment?)` -- same as check but returns the boolean without pushing any result. Used for control flow decisions (e.g., null geometry guard).
 - `group(fn, target, segment?)` -- call a group function and add the returned group as a nested child. Same value/path resolution as check.
-- `checkAll(name, lintOrFn, items, options?)` -- run a lint or group function against every array element, wrapping results in a named sub-group. Supports `collapse` (see below) and `segment` options.
+- `checkAll(name, lintOrFn, items, options?)` -- run a lint or group function against every array element, wrapping results in a named sub-group. Supports `segment` option to append a path segment.
 - `add(...)` -- push pre-built results or child groups (undefined values are silently ignored)
 - `build()` -- finalize into a `LintResultGroup`
 
@@ -38,17 +38,6 @@ Output is a tree of `LintResultGroup` and `LintResult` nodes. Groups carry a `pa
 ### Severity
 
 `Severity` is a numeric enum (`Info = 0`, `Warn = 1`, `Error = 2`). Lints declare their severity; results copy it. Groups aggregate to the worst severity among failures. Both results and groups also carry a `passed` boolean for simple filtering.
-
-### Collapse
-
-Collapse reduces noise from bulk array checks (primarily position arrays). It is activated per-`checkAll` via the `collapse` option and cascades to all nested `checkAll` descendants through `scope.collapse`. Once set, collapse cannot be backed out — all nesting below the collapse point is flattened.
-
-When collapse is active on a `checkAll`:
-
-- **All pass**: The entire subtree is replaced with a single summary `LintResult` (e.g., "All 100 positions valid").
-- **Some fail**: The subtree is flattened and only failing leaf results are kept. The group preserves its original `total` so consumers can derive "3 of 100 failed".
-
-The user setting `collapsePositions` (default `true`) controls whether position-level functions (e.g., `lintLineString`, `lintLinearRing`) activate collapse on their positions `checkAll`. Structural arrays (features, geometries, lines, rings, polygons) do not collapse.
 
 ### Filtering
 

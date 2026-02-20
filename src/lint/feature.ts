@@ -94,7 +94,7 @@ export function lintFeature(
   g.check(propertiesIsObject, f, "properties");
   g.group(lintBbox, f, "bbox");
 
-  const isNotNull = g.test(geometryNotNull, f, "geometry");
+  const isNotNull = g.check(geometryNotNull, f, "geometry");
   const isObject = g.check(geometryIsObject, f, "geometry");
   // Short circuit if the geometry is null - no need for the isObject check
   if (isNotNull && isObject) {
