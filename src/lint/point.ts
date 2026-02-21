@@ -3,7 +3,7 @@
  */
 
 import type { LintContext, LintResultGroup, Path } from "./types.ts";
-import { resultGroup } from "./builder.ts";
+import { resultGroup, isError } from "./builder.ts";
 import { makeArrayLint } from "./helpers.ts";
 import { lintPosition } from "./position.ts";
 
@@ -17,7 +17,7 @@ export function lintMultiPoint(
   path: Path,
 ): LintResultGroup {
   const g = resultGroup("multi-point", ctx, path);
-  if (!g.check(coordinatesIsArray, target)) return g.build();
+  if (isError(g.check(coordinatesIsArray, target))) return g.build();
   g.checkAll("positions", lintPosition, target as unknown[]);
   return g.build();
 }

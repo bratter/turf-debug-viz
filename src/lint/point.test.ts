@@ -1,10 +1,8 @@
 import test from "tape";
 import { lintMultiPoint } from "./point.ts";
-import { createContext } from "./builder.ts";
-import { find } from "./test/helpers.ts";
+import { ctx, find } from "./test/helpers.ts";
 import type { LintResultGroup } from "./types.ts";
-
-const ctx = createContext();
+import { Severity } from "./types.ts";
 
 test("lintMultiPoint", (t) => {
   t.test("schema", (t) => {
@@ -14,7 +12,7 @@ test("lintMultiPoint", (t) => {
           [0, 0],
           [1, 1],
         ],
-        ctx,
+        ctx(),
         [],
       );
       t.ok(g.passed);
@@ -22,21 +20,21 @@ test("lintMultiPoint", (t) => {
     });
 
     t.test("not an array", (t) => {
-      const g = lintMultiPoint({}, ctx, []);
+      const g = lintMultiPoint({}, ctx(), []);
       t.notOk(g.passed);
-      t.notOk(find(g, "coordinates-is-array")!.passed);
+      t.equal(find(g, "coordinates-is-array")!.severity, Severity.Error);
       t.end();
     });
 
     t.test("missing (undefined)", (t) => {
-      const g = lintMultiPoint(undefined, ctx, []);
+      const g = lintMultiPoint(undefined, ctx(), []);
       t.notOk(g.passed);
-      t.notOk(find(g, "coordinates-is-array")!.passed);
+      t.equal(find(g, "coordinates-is-array")!.severity, Severity.Error);
       t.end();
     });
 
     t.test("bad position element", (t) => {
-      const g = lintMultiPoint([[0, "a"]], ctx, []);
+      const g = lintMultiPoint([[0, "a"]], ctx(), []);
       t.notOk(g.passed);
       const positions = find(g, "positions") as LintResultGroup;
       t.ok(positions, "has positions sub-group");

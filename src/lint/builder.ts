@@ -53,26 +53,27 @@ function runLint<T = unknown>(
   lint: Lint<T>,
   value: T,
   ctx: LintContext,
-): { passed: boolean; message?: string } {
-  if (lint.optional && value === undefined)
-    return { passed: true };
-
-  let message: string | boolean;
+): [Severity, string?] {
+  let result: Severity | [Severity, string?];
   try {
-    message = lint.test(value, ctx);
+    result = lint.test(value, ctx);
   } catch (err) {
-    message =
+    result = [
+      Severity.Error,
       err instanceof Error && err.message
         ? `Lint threw an error with message: ${err.message}`
-        : "Lint threw an unknown error";
+        : "Lint threw an unknown error",
+    ];
   }
 
-  if (typeof message === "string")
-    return { passed: false, message };
-  return { passed: true };
+  return Array.isArray(result) ? result : [result];
 }
 
-function hasFailing(results: (LintResult | LintResultGroup)[], atOrAbove: Severity, tag?: Tag): boolean {
+function hasFailing(
+  results: (LintResult | LintResultGroup)[],
+  atOrAbove: Severity,
+  tag?: Tag,
+): boolean {
   for (const r of results) {
     if (r.passed) continue;
     if ("results" in r) {
@@ -83,6 +84,12 @@ function hasFailing(results: (LintResult | LintResultGroup)[], atOrAbove: Severi
     }
   }
   return false;
+}
+
+export function isError(
+  item: Severity | LintResult | LintResultGroup,
+): boolean {
+  return (typeof item === "number" ? item : item.severity) >= Severity.Error;
 }
 
 /**
@@ -106,7 +113,7 @@ export function resultGroup(
   return {
     ctx,
     path,
-    hasFailure(tag?: Tag, atOrAbove: Severity = Severity.Error): boolean {
+    hasMaxSeverityOf(atOrAbove: Severity = Severity.Error, tag?: Tag): boolean {
       return hasFailing(results, atOrAbove, tag);
     },
     hasSchemaError(): boolean {
@@ -116,24 +123,29 @@ export function resultGroup(
       lint: Lint<T>,
       target: T,
       segment?: string | number,
-    ): boolean {
+    ): Severity {
       // Skip without notification if the lint's tag is not in the tag list
-      if (tagList && !tagList.includes(lint.tag)) return true;
+      if (tagList && !tagList.includes(lint.tag)) return Severity.Skip;
 
       const { value, resolvedPath } = resolve(target, path, segment);
-      const { passed, message } = runLint(lint, value as T, ctx);
+      const [severity, message] = runLint(lint, value as T, ctx);
+      const passed = severity <= Severity.Info;
+
+      // Don't emit skip results unless setting tells us to
+      if (severity === Severity.Skip && !ctx.settings.showSkipped)
+        return Severity.Skip;
 
       results.push({
         name: lint.name,
         path: resolvedPath,
         description: lint.description,
-        severity: lint.severity,
         tag: lint.tag,
-        message,
+        severity,
         passed,
+        message,
       });
 
-      return passed;
+      return severity;
     },
     checkAll<T = unknown>(
       name: string,

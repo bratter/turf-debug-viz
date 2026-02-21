@@ -9,6 +9,8 @@ export type Path = (string | number)[];
 export interface LintSettings {
   /** Only run lints matching these tags (all tags if unset) */
   tags?: Tag[];
+  /** Output lint results for skipped lints (default false) */
+  showSkipped?: boolean;
 }
 
 /** Per-scope data that cascade to children via {@link withScope} */
@@ -29,9 +31,11 @@ export interface LintContext {
 
 /** Lint severity levels */
 export const enum Severity {
-  Info = 0,
-  Warn = 1,
-  Error = 2,
+  Skip = -1,
+  Ok = 0,
+  Info = 1,
+  Warn = 2,
+  Error = 3,
 }
 
 /** Tags for filtering test types */
@@ -46,7 +50,7 @@ export type Tag = "Schema" | "Geometry";
 export type TestFn<T = unknown> = (
   target: T,
   ctx: LintContext,
-) => string | boolean;
+) => Severity | [Severity, string?];
 
 /**
  * The callback function that builds a LintGroup.
@@ -65,12 +69,8 @@ export interface Lint<T = unknown> {
   name: string;
   /** Human readable lint description */
   description: string;
-  /** Severity level of the lint */
-  severity: Exclude<Severity, "Ok">;
   /** Tag for filtering */
   tag: Tag;
-  /** Hint for the lint runner to skip but mark as passed when undefined **/
-  optional?: boolean;
   /** The linting function to run */
   test: TestFn<T>;
 }
@@ -78,9 +78,17 @@ export interface Lint<T = unknown> {
 /**
  * Specification for a lint result.
  */
-export interface LintResult extends Omit<Lint, "test" | "optional"> {
+export interface LintResult {
+  /** Unique name of the lint */
+  name: string;
+  /** Human readable lint description */
+  description: string;
+  /** Tag for filtering */
+  tag: Tag;
   /** Path from the object root to the member under test */
   path: Path;
+  /** Output Severity of the lint, <2 is a pass */
+  severity: Severity;
   /** Whether the lint succeeded */
   passed: boolean;
   /** Optional failure message */
@@ -97,7 +105,7 @@ export interface LintResultGroup {
   path: Path;
   /** Child results and groups */
   results: (LintResult | LintResultGroup)[];
-  /** The maximum severity level of failures in the underlying results */
+  /** The maximum severity level in the underlying results */
   severity: Severity;
   /** Whether all children passed */
   passed: boolean;
@@ -121,23 +129,23 @@ export interface ResultGroupBuilder {
    * Restricts to the passed tag if one is provided. Level defaults to Error.
    * Useful for gating subsequent lints if Schema lints fail.
    */
-  hasFailure(tag?: Tag, atOrAbove?: Severity): boolean;
+  hasMaxSeverityOf(atOrAbove?: Severity, tag?: Tag): boolean;
   /** Special case of hasFailure for Schema errors */
   hasSchemaError(): boolean;
   /** Run a lint directly against a target value. */
-  check<T = unknown>(lint: Lint<T>, target: T): boolean;
+  check<T = unknown>(lint: Lint<T>, target: T): Severity;
   /** Run a lint against an object property (`target[segment]`). */
   check<T = unknown>(
     lint: Lint<T | undefined>,
     target: Record<string, T>,
     segment: string,
-  ): boolean;
+  ): Severity;
   /** Run a lint against an array element (`target[segment]`). */
   check<T = unknown>(
     lint: Lint<T | undefined>,
     target: T[],
     segment: number,
-  ): boolean;
+  ): Severity;
   /** Run a lint or group function against every element in an array, wrapping results in a named group. */
   checkAll<T = unknown>(
     name: string,

@@ -1,4 +1,10 @@
-import type { LintResult, LintResultGroup } from "../types.ts";
+import type { LintResult, LintResultGroup, LintSettings } from "../types.ts";
+import { createContext } from "../builder.ts";
+
+/** Create a fresh LintContext with showSkipped: true by default. */
+export function ctx(settings?: LintSettings) {
+  return createContext({ showSkipped: true, ...settings });
+}
 
 /** Find a result by name in a group's results array. */
 export function find(group: LintResultGroup, name: string) {

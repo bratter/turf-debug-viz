@@ -1,23 +1,21 @@
 import test from "tape";
 import { lintGeometry } from "./geometry.ts";
-import { createContext } from "./builder.ts";
-import { find, findDeep } from "./test/helpers.ts";
-
-const ctx = createContext();
+import { ctx, find, findDeep } from "./test/helpers.ts";
+import { Severity } from "./types.ts";
 
 test("lintGeometry", (t) => {
   t.test("schema", (t) => {
     t.test("not object", (t) => {
-      const g = lintGeometry("string", ctx, []);
+      const g = lintGeometry("string", ctx(), []);
       t.notOk(g.passed);
-      t.notOk(find(g, "geometry-is-object")!.passed);
+      t.equal(find(g, "geometry-is-object")!.severity, Severity.Error);
       t.end();
     });
 
     t.test("wrong type", (t) => {
-      const g = lintGeometry({ type: "Wrong" }, ctx, []);
+      const g = lintGeometry({ type: "Wrong" }, ctx(), []);
       t.notOk(g.passed);
-      t.notOk(find(g, "type-geometry")!.passed);
+      t.equal(find(g, "type-geometry")!.severity, Severity.Error);
       t.end();
     });
 
@@ -30,12 +28,12 @@ test("lintGeometry", (t) => {
         type: "GeometryCollection",
         geometries: [{ type: "GeometryCollection", geometries: [] }],
       },
-      createContext(),
+      ctx(),
       [],
     );
     const r = findDeep(g, "no-parent-collection");
     t.ok(r, "has no-parent-collection result");
-    t.notOk(r!.passed, "nested collection warns");
+    t.equal(r!.severity, Severity.Warn);
     t.end();
   });
 
@@ -49,7 +47,7 @@ test("lintGeometry", (t) => {
             [1, 1],
           ],
         },
-        createContext(),
+        ctx(),
         [],
       );
       t.ok(g.passed);
@@ -65,7 +63,7 @@ test("lintGeometry", (t) => {
             [1, 1, 200],
           ],
         },
-        createContext(),
+        ctx(),
         [],
       );
       t.ok(g.passed);
@@ -81,12 +79,17 @@ test("lintGeometry", (t) => {
             [1, 1, 100],
           ],
         },
-        createContext(),
+        ctx(),
         [],
       );
       t.notOk(g.passed);
-      const dim = findDeep(g, "position-dimensionality");
-      t.ok(dim && !dim.passed, "has failing position-dimensionality");
+      // findDeep returns the first position-dimensionality (Ok from baseline);
+      // the error is on the second position, so assert at the group level.
+      t.equal(
+        g.severity,
+        Severity.Error,
+        "has Error severity from mixed dimensionality",
+      );
       t.end();
     });
 
@@ -103,12 +106,15 @@ test("lintGeometry", (t) => {
             ],
           ],
         },
-        createContext(),
+        ctx(),
         [],
       );
       t.notOk(g.passed);
-      const dim = findDeep(g, "position-dimensionality");
-      t.ok(dim && !dim.passed, "has failing position-dimensionality");
+      t.equal(
+        g.severity,
+        Severity.Error,
+        "has Error severity from mixed dimensionality",
+      );
       t.end();
     });
 

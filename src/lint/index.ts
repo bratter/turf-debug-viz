@@ -9,7 +9,14 @@
 
 import { Severity, type LintResultGroup, type LintSettings } from "./types.ts";
 import { GEOJSON_TYPES, FEATURE, FEATURE_COLLECTION } from "./const.ts";
-import { createContext, DEFAULT_SETTINGS, filterLintResult, flattenLintResult, resultGroup } from "./builder.ts";
+import {
+  createContext,
+  DEFAULT_SETTINGS,
+  filterLintResult,
+  flattenLintResult,
+  resultGroup,
+  isError,
+} from "./builder.ts";
 import { makeObjectLint, makeTypeLint } from "./helpers.ts";
 import { lintFeature, lintFeatureCollection } from "./feature.ts";
 import { lintGeometry } from "./geometry.ts";
@@ -22,14 +29,18 @@ const typeIsGeoJson = makeTypeLint(
   "RFC7946 3",
 );
 
-export {
-  filterLintResult,
-  flattenLintResult,
-} from "./builder.ts";
+export { filterLintResult, flattenLintResult } from "./builder.ts";
 
-export function lintFlat(target: unknown, severity: Severity = Severity.Info, settings: Partial<LintSettings> = {}): LintResultGroup {
+export function lintFlat(
+  target: unknown,
+  severity: Severity = Severity.Info,
+  settings: Partial<LintSettings> = {},
+): LintResultGroup {
   const results = lint(target, settings);
-  const filtered = filterLintResult(results, r => r.passed && r.severity >= severity);
+  const filtered = filterLintResult(
+    results,
+    (r) => r.passed && r.severity >= severity,
+  );
 
   return flattenLintResult(filtered);
 }
@@ -38,7 +49,7 @@ export function lintFlat(target: unknown, severity: Severity = Severity.Info, se
  * Lint a GeoJSON object.
  *
  * Produces a lint tree for maximium flexibility in processing results.
- * Consider using {@link lint} 
+ * Consider using {@link lint}
  */
 export function lint(
   target: unknown,
@@ -47,10 +58,10 @@ export function lint(
   const ctx = createContext({ ...DEFAULT_SETTINGS, ...settings });
   const g = resultGroup("document", ctx, []);
 
-  if (!g.check(rootIsObject, target)) return g.build();
+  if (isError(g.check(rootIsObject, target))) return g.build();
   const gj = target as Record<string, unknown>;
 
-  if (!g.check(typeIsGeoJson, gj, "type")) return g.build();
+  if (isError(g.check(typeIsGeoJson, gj, "type"))) return g.build();
 
   switch (gj.type) {
     case FEATURE:

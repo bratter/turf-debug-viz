@@ -31,6 +31,8 @@ export const GEOJSON_TYPES = [
 
 /** Convert severity levels to human-readable text */
 export const SEV_LEVELS: Record<Severity, string> = {
+  [Severity.Skip]: "Skip",
+  [Severity.Ok]: "Ok",
   [Severity.Info]: "Info",
   [Severity.Warn]: "Warning",
   [Severity.Error]: "Error",

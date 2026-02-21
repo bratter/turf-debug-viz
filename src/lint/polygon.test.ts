@@ -1,10 +1,8 @@
 import test from "tape";
 import { lintLinearRing, lintPolygon, lintMultiPolygon } from "./polygon.ts";
-import { createContext } from "./builder.ts";
-import { find } from "./test/helpers.ts";
+import { ctx, find } from "./test/helpers.ts";
 import type { LintResult, LintResultGroup } from "./types.ts";
-
-const ctx = createContext();
+import { Severity } from "./types.ts";
 
 test("lintLinearRing", (t) => {
   t.test("schema", (t) => {
@@ -16,7 +14,7 @@ test("lintLinearRing", (t) => {
           [1, 1],
           [0, 0],
         ],
-        ctx,
+        ctx(),
         ["coordinates", 0],
       );
       t.ok(result.passed);
@@ -24,21 +22,21 @@ test("lintLinearRing", (t) => {
     });
 
     t.test("non-array fails", (t) => {
-      const result = lintLinearRing("x", ctx, ["coordinates", 0]);
+      const result = lintLinearRing("x", ctx(), ["coordinates", 0]);
       t.notOk(result.passed);
-      t.notOk(find(result, "ring-is-array")!.passed);
+      t.equal(find(result, "ring-is-array")!.severity, Severity.Error);
       t.end();
     });
 
     t.test("undefined fails", (t) => {
-      const result = lintLinearRing(undefined, ctx, ["coordinates", 0]);
+      const result = lintLinearRing(undefined, ctx(), ["coordinates", 0]);
       t.notOk(result.passed);
-      t.notOk(find(result, "ring-is-array")!.passed);
+      t.equal(find(result, "ring-is-array")!.severity, Severity.Error);
       t.end();
     });
 
     t.test("bad position element surfaces", (t) => {
-      const result = lintLinearRing([[0, "a"]], ctx, ["coordinates", 0]);
+      const result = lintLinearRing([[0, "a"]], ctx(), ["coordinates", 0]);
       t.notOk(result.passed);
       const positions = find(result, "positions") as LintResultGroup;
       t.ok(positions, "has positions sub-group");
@@ -57,11 +55,11 @@ test("lintLinearRing", (t) => {
           [1, 0],
           [0, 0],
         ],
-        createContext(),
+        ctx(),
         ["coordinates", 0],
       );
       t.notOk(result.passed);
-      t.notOk(find(result, "ring-min-length")!.passed);
+      t.equal(find(result, "ring-min-length")!.severity, Severity.Error);
       t.end();
     });
 
@@ -73,12 +71,12 @@ test("lintLinearRing", (t) => {
           [1, 1],
           [0, 1],
         ],
-        createContext(),
+        ctx(),
         ["coordinates", 0],
       );
       t.notOk(result.passed);
       const r = find(result, "ring-closed") as LintResult;
-      t.notOk(r.passed);
+      t.equal(r.severity, Severity.Error);
       t.ok(r.message, "has failure message");
       t.end();
     });
@@ -91,11 +89,10 @@ test("lintLinearRing", (t) => {
           [1, 1],
           [0, 0],
         ],
-        createContext(),
+        ctx(),
         ["coordinates", 0],
       );
-      const r = find(result, "ring-closed");
-      t.ok(!r || r.passed, "ring-closed passes for 2D ring");
+      t.equal(find(result, "ring-closed")!.severity, Severity.Ok);
       t.end();
     });
 
@@ -107,11 +104,10 @@ test("lintLinearRing", (t) => {
           [1, 1, 10],
           [0, 0, 10],
         ],
-        createContext(),
+        ctx(),
         ["coordinates", 0],
       );
-      const r = find(result, "ring-closed");
-      t.ok(!r || r.passed, "ring-closed passes for 3D ring");
+      t.equal(find(result, "ring-closed")!.severity, Severity.Ok);
       t.end();
     });
 
@@ -123,12 +119,11 @@ test("lintLinearRing", (t) => {
           [1, 1, 10],
           [0, 0, 20],
         ],
-        createContext(),
+        ctx(),
         ["coordinates", 0],
       );
       t.notOk(result.passed);
-      const r = find(result, "ring-closed") as LintResult;
-      t.notOk(r.passed);
+      t.equal(find(result, "ring-closed")!.severity, Severity.Error);
       t.end();
     });
 
@@ -141,11 +136,10 @@ test("lintLinearRing", (t) => {
           [1, 1],
           [0, 0],
         ],
-        createContext(),
+        ctx(),
         ["coordinates", 0],
       );
-      const r = find(result, "ring-winding-exterior");
-      t.ok(!r || r.passed, "ring-winding-exterior passes for CCW ring");
+      t.equal(find(result, "ring-winding-exterior")!.severity, Severity.Ok);
       t.end();
     });
 
@@ -158,12 +152,12 @@ test("lintLinearRing", (t) => {
           [1, 0],
           [0, 0],
         ],
-        createContext(),
+        ctx(),
         ["coordinates", 0],
       );
       t.notOk(result.passed);
       const r = find(result, "ring-winding-exterior") as LintResult;
-      t.notOk(r.passed);
+      t.equal(r.severity, Severity.Error);
       t.equal(r.message, "Expected counterclockwise winding, got clockwise");
       t.end();
     });
@@ -177,11 +171,10 @@ test("lintLinearRing", (t) => {
           [1, 0],
           [0, 0],
         ],
-        createContext(),
+        ctx(),
         ["coordinates", 1],
       );
-      const r = find(result, "ring-winding-interior");
-      t.ok(!r || r.passed, "ring-winding-interior passes for CW hole");
+      t.equal(find(result, "ring-winding-interior")!.severity, Severity.Ok);
       t.end();
     });
 
@@ -194,12 +187,12 @@ test("lintLinearRing", (t) => {
           [1, 1],
           [0, 0],
         ],
-        createContext(),
+        ctx(),
         ["coordinates", 1],
       );
       t.notOk(result.passed);
       const r = find(result, "ring-winding-interior") as LintResult;
-      t.notOk(r.passed);
+      t.equal(r.severity, Severity.Error);
       t.equal(r.message, "Expected clockwise winding, got counterclockwise");
       t.end();
     });
@@ -222,7 +215,7 @@ test("lintPolygon", (t) => {
             [0, 0],
           ],
         ],
-        createContext(),
+        ctx(),
         [],
       );
       t.ok(g.passed);
@@ -230,21 +223,21 @@ test("lintPolygon", (t) => {
     });
 
     t.test("not an array", (t) => {
-      const g = lintPolygon("x", createContext(), []);
+      const g = lintPolygon("x", ctx(), []);
       t.notOk(g.passed);
-      t.notOk(find(g, "coordinates-is-array")!.passed);
+      t.equal(find(g, "coordinates-is-array")!.severity, Severity.Error);
       t.end();
     });
 
     t.test("missing (undefined)", (t) => {
-      const g = lintPolygon(undefined, createContext(), []);
+      const g = lintPolygon(undefined, ctx(), []);
       t.notOk(g.passed);
-      t.notOk(find(g, "coordinates-is-array")!.passed);
+      t.equal(find(g, "coordinates-is-array")!.severity, Severity.Error);
       t.end();
     });
 
     t.test("bad position in ring surfaces", (t) => {
-      const g = lintPolygon([[[0, "a"]]], createContext(), []);
+      const g = lintPolygon([[[0, "a"]]], ctx(), []);
       t.notOk(g.passed);
       const rings = find(g, "rings") as LintResultGroup;
       t.ok(rings, "has rings sub-group");
@@ -280,7 +273,7 @@ test("lintMultiPolygon", (t) => {
             ],
           ],
         ],
-        ctx,
+        ctx(),
         [],
       );
       t.ok(g.passed);
@@ -288,21 +281,21 @@ test("lintMultiPolygon", (t) => {
     });
 
     t.test("not an array", (t) => {
-      const g = lintMultiPolygon({}, ctx, []);
+      const g = lintMultiPolygon({}, ctx(), []);
       t.notOk(g.passed);
-      t.notOk(find(g, "coordinates-is-array")!.passed);
+      t.equal(find(g, "coordinates-is-array")!.severity, Severity.Error);
       t.end();
     });
 
     t.test("missing (undefined)", (t) => {
-      const g = lintMultiPolygon(undefined, ctx, []);
+      const g = lintMultiPolygon(undefined, ctx(), []);
       t.notOk(g.passed);
-      t.notOk(find(g, "coordinates-is-array")!.passed);
+      t.equal(find(g, "coordinates-is-array")!.severity, Severity.Error);
       t.end();
     });
 
     t.test("bad position in nested polygon surfaces", (t) => {
-      const g = lintMultiPolygon([[[[0, "a"]]]], ctx, []);
+      const g = lintMultiPolygon([[[[0, "a"]]]], ctx(), []);
       t.notOk(g.passed);
       const polygons = find(g, "polygons") as LintResultGroup;
       t.ok(polygons, "has polygons sub-group");

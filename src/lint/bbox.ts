@@ -3,9 +3,16 @@
  */
 
 import type { Lint, LintContext, LintResultGroup, Path } from "./types.ts";
-import { Severity } from "./types.ts";
-import { resultGroup } from "./builder.ts";
-import { isRecord, makeArrayLint } from "./helpers.ts";
+import { resultGroup, isError } from "./builder.ts";
+import {
+  isRecord,
+  makeArrayLint,
+  skip,
+  ok,
+  info,
+  warn,
+  error,
+} from "./helpers.ts";
 import {
   FEATURE,
   FEATURE_COLLECTION,
@@ -23,21 +30,19 @@ const bboxIsArray = makeArrayLint("bbox", { ref: "RFC7946 5" });
 const bboxLength: Lint<unknown[]> = {
   name: "bbox-length",
   description: "A bbox MUST have 4 or 6 elements (RFC7946 5)",
-  severity: Severity.Error,
   tag: "Schema",
   test(target) {
     const len = target.length;
     if (len !== 4 && len !== 6) {
-      return `Expected 4 or 6 elements, received ${len}`;
+      return error(`Expected 4 or 6 elements, received ${len}`);
     }
-    return true;
+    return ok();
   },
 };
 
 const bboxElements: Lint<unknown[]> = {
   name: "bbox-elements",
   description: "All bbox elements MUST be numbers (RFC7946 5)",
-  severity: Severity.Error,
   tag: "Schema",
   test(target) {
     const bad = target
@@ -45,9 +50,9 @@ const bboxElements: Lint<unknown[]> = {
       .filter(([v]) => typeof v !== "number");
     if (bad.length > 0) {
       const details = bad.map(([v, i]) => `[${i}]: ${typeof v}`).join(", ");
-      return `Non-numeric elements: ${details}`;
+      return error(`Non-numeric elements: ${details}`);
     }
-    return true;
+    return ok();
   },
 };
 
@@ -58,13 +63,12 @@ const bboxDimensionality: Lint<number[]> = {
   name: "bbox-dimensionality",
   description:
     "A bounding box MUST be an array of length 2*n where n is the coordinate dimensionality (RFC7946 5)",
-  severity: Severity.Error,
   tag: "Geometry",
   test(target, ctx) {
     // Any error state where we can't get the first valid coordinate except
     // where a Feature has a null geometry is an error
     let parent = ctx.scope.parent;
-    if (!isRecord(parent)) return false;
+    if (!isRecord(parent)) return skip();
 
     // Special case to get the parent to a geometry from a feature
     if (parent.type === FEATURE_COLLECTION) {
@@ -74,18 +78,18 @@ const bboxDimensionality: Lint<number[]> = {
         const fWithGeom = parent.features.find((f) => f.geometry !== null);
         if (fWithGeom) parent = fWithGeom?.geometry;
         // If all the geometries are null or there are none, the lint passes
-        else return true;
+        else return ok();
       } else {
-        return true;
+        return ok();
       }
     } else if (parent.type === FEATURE) {
       parent = parent.geometry;
       // If feature has a null geometry, the lint passes
-      if (parent === null) return true;
+      if (parent === null) return ok();
     }
 
     // Retest as we may have reassigned
-    if (!isRecord(parent)) return false;
+    if (!isRecord(parent)) return skip();
 
     // Special case to get a geometry collection to a geometry type - has to be
     // done after parent reassignment from features
@@ -96,9 +100,9 @@ const bboxDimensionality: Lint<number[]> = {
     }
 
     // Retest as we may have reassigned, then get coordinates
-    if (!isRecord(parent)) return false;
+    if (!isRecord(parent)) return skip();
     const coords = parent.coordinates;
-    if (!Array.isArray(coords)) return false;
+    if (!Array.isArray(coords)) return skip();
 
     // Now work on the geometries to get the comparison position
     let cmp: unknown;
@@ -122,7 +126,7 @@ const bboxDimensionality: Lint<number[]> = {
       default:
         // Abort if we don't have a valid geometry
         // This includes nested geometry collections
-        return false;
+        return skip();
     }
 
     // Abandon if we don't happen to have a valid position - this will usually
@@ -136,11 +140,13 @@ const bboxDimensionality: Lint<number[]> = {
         2 * cmp.length === target.length ||
         (cmp.length > 3 && target.length === 6)
       )
-        return true;
+        return ok();
       else
-        return `Bbox is not 2*n the first coordinate, coordinate dim is ${cmp.length}, bbox dim is ${target.length}`;
+        return error(
+          `Bbox is not 2*n the first coordinate, coordinate dim is ${cmp.length}, bbox dim is ${target.length}`,
+        );
     } else {
-      return false;
+      return skip();
     }
   },
 };
@@ -148,7 +154,6 @@ const bboxDimensionality: Lint<number[]> = {
 const bboxLongitudeRange: Lint<number[]> = {
   name: "bbox-longitude-range",
   description: "Bbox longitudes MUST be in [-180, 180] (RFC7946 5)",
-  severity: Severity.Error,
   tag: "Geometry",
   test(target) {
     const half = target.length / 2;
@@ -158,15 +163,14 @@ const bboxLongitudeRange: Lint<number[]> = {
     if (west < -180 || west > 180) bad.push(`west=${west}`);
     if (east < -180 || east > 180) bad.push(`east=${east}`);
     if (bad.length > 0)
-      return `Longitude out of [-180, 180]: ${bad.join(", ")}`;
-    return true;
+      return error(`Longitude out of [-180, 180]: ${bad.join(", ")}`);
+    return ok();
   },
 };
 
 const bboxLatitudeRange: Lint<number[]> = {
   name: "bbox-latitude-range",
   description: "Bbox latitudes MUST be in [-90, 90] (RFC7946 5)",
-  severity: Severity.Error,
   tag: "Geometry",
   test(target) {
     const half = target.length / 2;
@@ -175,39 +179,39 @@ const bboxLatitudeRange: Lint<number[]> = {
     const bad: string[] = [];
     if (south < -90 || south > 90) bad.push(`south=${south}`);
     if (north < -90 || north > 90) bad.push(`north=${north}`);
-    if (bad.length > 0) return `Latitude out of [-90, 90]: ${bad.join(", ")}`;
-    return true;
+    if (bad.length > 0)
+      return error(`Latitude out of [-90, 90]: ${bad.join(", ")}`);
+    return ok();
   },
 };
 
 const bboxLatitudeOrder: Lint<number[]> = {
   name: "bbox-latitude-order",
   description: "South latitude MUST NOT exceed north latitude (RFC7946 5)",
-  severity: Severity.Error,
   tag: "Geometry",
   test(target) {
     const half = target.length / 2;
     const south = target[1]!,
       north = target[half + 1]!;
     if (south > north)
-      return `South latitude (${south}) exceeds north latitude (${north})`;
-    return true;
+      return error(
+        `South latitude (${south}) exceeds north latitude (${north})`,
+      );
+    return ok();
   },
 };
 
 const bboxAntimeridian: Lint<number[]> = {
   name: "bbox-antimeridian",
   description: "Bbox crosses the antimeridian (west > east) (RFC7946 5)",
-  severity: Severity.Info,
   tag: "Geometry",
-  optional: true,
   test(target) {
     const half = target.length / 2;
     const west = target[0]!,
       east = target[half]!;
     if (west > east)
-      return `Bbox crosses the antimeridian: west=${west}, east=${east}`;
-    return true;
+      return info(`Bbox crosses the antimeridian: west=${west}, east=${east}`);
+    return skip();
   },
 };
 
@@ -215,19 +219,19 @@ const bboxPolarCap: Lint<number[]> = {
   name: "bbox-polar-cap",
   description:
     "Full polar cap bounding boxes SHOULD use -180/180 longitude (RFC7946 5)",
-  severity: Severity.Warn,
   tag: "Geometry",
-  optional: true,
   test(target) {
     const half = target.length / 2;
     const west = target[0]!,
       south = target[1]!;
     const east = target[half]!,
       north = target[half + 1]!;
-    if (south !== -90 && north !== 90) return true; // not polar
-    if (Math.abs(east - west) < 360) return true; // partial polar region
-    if (west === -180 && east === 180) return true; // correct canonical form
-    return `Polar cap bbox should use west=-180, east=180; got west=${west}, east=${east}`;
+    if (south !== -90 && north !== 90) return skip(); // not polar
+    if (Math.abs(east - west) < 360) return skip(); // partial polar region
+    if (west === -180 && east === 180) return skip(); // correct canonical form
+    return warn(
+      `Polar cap bbox should use west=-180, east=180; got west=${west}, east=${east}`,
+    );
   },
 };
 
@@ -240,7 +244,7 @@ export function lintBbox(
   if (bbox === undefined) return;
   const g = resultGroup("bbox", ctx, path);
 
-  if (!g.check(bboxIsArray, bbox)) return g.build();
+  if (isError(g.check(bboxIsArray, bbox))) return g.build();
   const arr = bbox as unknown[];
   g.check(bboxLength, arr);
   g.check(bboxElements, arr);

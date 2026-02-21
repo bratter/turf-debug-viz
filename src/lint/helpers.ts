@@ -5,9 +5,35 @@
 import type { Lint } from "./types.ts";
 import { Severity } from "./types.ts";
 
+/** Type guard to check that a value is a non-null object. */
+export function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
 /** Convert a PascalCase or camelCase string to kebab-case. */
 export function kebab(s: string): string {
   return s.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
+}
+
+/** Lint skip return helper **/
+export function skip(msg?: string): [Severity, string?] {
+  return [Severity.Skip, msg];
+}
+/** Lint ok return helper **/
+export function ok(msg?: string): [Severity, string?] {
+  return [Severity.Ok, msg];
+}
+/** Lint info return helper **/
+export function info(msg: string): [Severity, string] {
+  return [Severity.Info, msg];
+}
+/** Lint warning return helper **/
+export function warn(msg: string): [Severity, string] {
+  return [Severity.Warn, msg];
+}
+/** Lint error return helper **/
+export function error(msg: string): [Severity, string] {
+  return [Severity.Error, msg];
 }
 
 /**
@@ -28,14 +54,14 @@ export function makeArrayLint(
   return {
     name: `${k}-is-array`,
     description: `The ${member} member MUST be an Array${ref ? ` (${ref})` : ""}`,
-    severity: Severity.Error,
     tag: "Schema",
-    test(target: unknown) {
-      if (target === undefined) return `The ${member} member must be present`;
+    test(target) {
+      if (target === undefined)
+        return error(`The ${member} member must be present`);
       if (!Array.isArray(target)) {
-        return `Expected an Array, received ${typeof target}`;
+        return error(`Expected an Array, received ${typeof target}`);
       }
-      return true;
+      return ok();
     },
   };
 }
@@ -60,17 +86,19 @@ export function makeObjectLint(
   return {
     name: `${k}-is-object`,
     description: `The ${member} member MUST be an Object${nullClause}${ref ? ` (${ref})` : ""}`,
-    severity: Severity.Error,
     tag: "Schema",
-    test(target: unknown) {
-      if (target === undefined) return `The ${member} member must be present`;
+    test(target) {
+      if (target === undefined)
+        return error(`The ${member} member must be present`);
       if (target === null)
-        return nullable ? true : `Expected an Object, received null`;
+        return nullable ? ok() : error(`Expected an Object, received null`);
       if (Array.isArray(target))
-        return `Expected an Object${nullClause}, received an Array`;
+        return error(`Expected an Object${nullClause}, received an Array`);
       if (typeof target !== "object")
-        return `Expected an Object${nullClause}, received ${typeof target}`;
-      return true;
+        return error(
+          `Expected an Object${nullClause}, received ${typeof target}`,
+        );
+      return ok();
     },
   };
 }
@@ -114,21 +142,15 @@ export function makeTypeLint(
   return {
     name,
     description: `Member type MUST be ${descInner}${specRef ? ` (${specRef})` : ""}`,
-    severity: Severity.Error,
     tag: "Schema",
-    test(target: unknown) {
+    test(target) {
       if (typeof target !== "string") {
-        return `Expected a string type, received ${typeof target}`;
+        return error(`Expected a string type, received ${typeof target}`);
       }
       if (!typeList.includes(target)) {
-        return `Expected ${errorInner}, received "${target}"`;
+        return error(`Expected ${errorInner}, received "${target}"`);
       }
-      return true;
+      return ok();
     },
   };
-}
-
-/** Type guard to check that a value is a non-null object. */
-export function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }

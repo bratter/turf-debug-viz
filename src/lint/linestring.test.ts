@@ -1,10 +1,8 @@
 import test from "tape";
 import { lintLineString, lintMultiLineString } from "./linestring.ts";
-import { createContext } from "./builder.ts";
-import { find } from "./test/helpers.ts";
+import { ctx, find } from "./test/helpers.ts";
 import type { LintResultGroup } from "./types.ts";
-
-const ctx = createContext();
+import { Severity } from "./types.ts";
 
 test("lintLineString", (t) => {
   t.test("schema", (t) => {
@@ -14,7 +12,7 @@ test("lintLineString", (t) => {
           [0, 0],
           [1, 1],
         ],
-        createContext(),
+        ctx(),
         [],
       );
       t.ok(g.passed);
@@ -22,21 +20,21 @@ test("lintLineString", (t) => {
     });
 
     t.test("not an array", (t) => {
-      const g = lintLineString("x", createContext(), []);
+      const g = lintLineString("x", ctx(), []);
       t.notOk(g.passed);
-      t.notOk(find(g, "line-is-array")!.passed);
+      t.equal(find(g, "line-is-array")!.severity, Severity.Error);
       t.end();
     });
 
     t.test("missing (undefined)", (t) => {
-      const g = lintLineString(undefined, createContext(), []);
+      const g = lintLineString(undefined, ctx(), []);
       t.notOk(g.passed);
-      t.notOk(find(g, "line-is-array")!.passed);
+      t.equal(find(g, "line-is-array")!.severity, Severity.Error);
       t.end();
     });
 
     t.test("bad position element", (t) => {
-      const g = lintLineString([[0, "a"]], createContext(), []);
+      const g = lintLineString([[0, "a"]], ctx(), []);
       t.notOk(g.passed);
       const positions = find(g, "positions") as LintResultGroup;
       t.ok(positions, "has positions sub-group");
@@ -49,16 +47,16 @@ test("lintLineString", (t) => {
 
   t.test("geometry", (t) => {
     t.test("empty array fails line-min-length", (t) => {
-      const g = lintLineString([], createContext(), []);
+      const g = lintLineString([], ctx(), []);
       t.notOk(g.passed);
-      t.notOk(find(g, "line-min-length")!.passed);
+      t.equal(find(g, "line-min-length")!.severity, Severity.Error);
       t.end();
     });
 
     t.test("single position fails line-min-length", (t) => {
-      const g = lintLineString([[0, 0]], createContext(), []);
+      const g = lintLineString([[0, 0]], ctx(), []);
       t.notOk(g.passed);
-      t.notOk(find(g, "line-min-length")!.passed);
+      t.equal(find(g, "line-min-length")!.severity, Severity.Error);
       t.end();
     });
 
@@ -68,10 +66,11 @@ test("lintLineString", (t) => {
           [0, 0],
           [1, 1],
         ],
-        createContext(),
+        ctx(),
         [],
       );
       t.ok(g.passed);
+      t.equal(find(g, "line-min-length")!.severity, Severity.Ok);
       t.end();
     });
 
@@ -95,7 +94,7 @@ test("lintMultiLineString", (t) => {
             [3, 3],
           ],
         ],
-        ctx,
+        ctx(),
         [],
       );
       t.ok(g.passed);
@@ -103,21 +102,21 @@ test("lintMultiLineString", (t) => {
     });
 
     t.test("not an array", (t) => {
-      const g = lintMultiLineString({}, ctx, []);
+      const g = lintMultiLineString({}, ctx(), []);
       t.notOk(g.passed);
-      t.notOk(find(g, "coordinates-is-array")!.passed);
+      t.equal(find(g, "coordinates-is-array")!.severity, Severity.Error);
       t.end();
     });
 
     t.test("missing (undefined)", (t) => {
-      const g = lintMultiLineString(undefined, ctx, []);
+      const g = lintMultiLineString(undefined, ctx(), []);
       t.notOk(g.passed);
-      t.notOk(find(g, "coordinates-is-array")!.passed);
+      t.equal(find(g, "coordinates-is-array")!.severity, Severity.Error);
       t.end();
     });
 
     t.test("bad position element in line", (t) => {
-      const g = lintMultiLineString([[[0, "a"]]], ctx, []);
+      const g = lintMultiLineString([[[0, "a"]]], ctx(), []);
       t.notOk(g.passed);
       const lines = find(g, "lines") as LintResultGroup;
       t.ok(lines, "has lines sub-group");
