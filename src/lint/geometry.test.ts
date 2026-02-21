@@ -37,6 +37,44 @@ test("lintGeometry", (t) => {
     t.end();
   });
 
+  t.test("foreign-member", (t) => {
+    t.test("geometry with extra key emits info", (t) => {
+      const g = lintGeometry(
+        { type: "Point", coordinates: [0, 0], extra: "val" },
+        ctx(),
+        [],
+      );
+      const r = findDeep(g, "foreign-member");
+      t.ok(r, "has foreign-member result");
+      t.equal(r!.severity, Severity.Info);
+      t.end();
+    });
+
+    t.test("GeometryCollection with extra key emits info", (t) => {
+      const g = lintGeometry(
+        { type: "GeometryCollection", geometries: [], extra: "val" },
+        ctx(),
+        [],
+      );
+      const r = findDeep(g, "foreign-member");
+      t.ok(r, "has foreign-member result");
+      t.equal(r!.severity, Severity.Info);
+      t.end();
+    });
+
+    t.test("standard geometry has no foreign-member result", (t) => {
+      const g = lintGeometry(
+        { type: "Point", coordinates: [0, 0] },
+        ctx(),
+        [],
+      );
+      t.notOk(findDeep(g, "foreign-member"), "no foreign-member lint");
+      t.end();
+    });
+
+    t.end();
+  });
+
   t.test("dimensionality", (t) => {
     t.test("consistent 2D positions pass", (t) => {
       const g = lintGeometry(

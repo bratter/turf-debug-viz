@@ -24,6 +24,7 @@ import {
   makeArrayLint,
   makeObjectLint,
   makeTypeLint,
+  foreignMember,
   ok,
   warn,
 } from "./helpers.ts";
@@ -32,6 +33,9 @@ import { lintPosition } from "./position.ts";
 import { lintMultiPoint } from "./point.ts";
 import { lintLineString, lintMultiLineString } from "./linestring.ts";
 import { lintPolygon, lintMultiPolygon } from "./polygon.ts";
+
+const GEOMETRY_KEYS = new Set(["type", "coordinates", "bbox"]);
+const GC_KEYS = new Set(["type", "geometries", "bbox"]);
 
 const geometryIsObject = makeObjectLint("geometry", { ref: "RFC7946 3.1" });
 const geometriesIsArray = makeArrayLint("geometries", { ref: "RFC7946 3.1.8" });
@@ -68,6 +72,11 @@ export function lintGeometry(
 
   g.check(typeIsGeometry, geom, "type");
   g.group(lintBbox, geom, "bbox");
+
+  const allowedKeys = geom.type === GEOMETRY_COLLECTION ? GC_KEYS : GEOMETRY_KEYS;
+  for (const key of Object.keys(geom)) {
+    if (!allowedKeys.has(key)) g.check(foreignMember, geom, key);
+  }
 
   switch (geom.type) {
     case POINT:

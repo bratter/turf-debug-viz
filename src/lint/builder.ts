@@ -53,8 +53,8 @@ function runLint<T = unknown>(
   lint: Lint<T>,
   value: T,
   ctx: LintContext,
-): [Severity, string?] {
-  let result: Severity | [Severity, string?];
+): [Severity, string?, unknown?] {
+  let result: Severity | [Severity, string?] | [Severity, string?, unknown?];
   try {
     result = lint.test(value, ctx);
   } catch (err) {
@@ -128,7 +128,7 @@ export function resultGroup(
       if (tagList && !tagList.includes(lint.tag)) return Severity.Skip;
 
       const { value, resolvedPath } = resolve(target, path, segment);
-      const [severity, message] = runLint(lint, value as T, ctx);
+      const [severity, message, data] = runLint(lint, value as T, ctx);
       const passed = severity <= Severity.Info;
 
       // Don't emit skip results unless setting tells us to
@@ -143,6 +143,7 @@ export function resultGroup(
         severity,
         passed,
         message,
+        ...(data !== undefined && { data }),
       });
 
       return severity;

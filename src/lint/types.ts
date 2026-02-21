@@ -50,7 +50,7 @@ export type Tag = "Schema" | "Geometry";
 export type TestFn<T = unknown> = (
   target: T,
   ctx: LintContext,
-) => Severity | [Severity, string?];
+) => Severity | [Severity, string?, unknown?];
 
 /**
  * The callback function that builds a LintGroup.
@@ -93,7 +93,16 @@ export interface LintResult {
   passed: boolean;
   /** Optional failure message */
   message?: string;
+  /** Optional structured supplementary data */
+  data?: unknown;
 }
+
+export interface LintResultDupPositions extends LintResult {
+  name: "duplicate-positions",
+  data: number[],
+}
+
+export type LintResultTypes = LintResultDupPositions | LintResult;
 
 /**
  * Specification for a group of lints.

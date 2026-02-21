@@ -5,8 +5,9 @@
 import type { Lint, LintContext, LintResultGroup, Path } from "./types.ts";
 import { Severity } from "./types.ts";
 import { resultGroup, isError } from "./builder.ts";
-import { makeArrayLint, skip, ok, warn, error } from "./helpers.ts";
+import { makeArrayLint, EPSILON, skip, ok, warn, error } from "./helpers.ts";
 import { lintPosition } from "./position.ts";
+import { duplicatePositions } from "./linestring.ts";
 
 const ringIsArray = makeArrayLint("ring", { ref: "RFC7946 3.1.6" });
 const polygonCoordsIsArray = makeArrayLint("coordinates", {
@@ -57,7 +58,6 @@ function signedArea(ring: number[][]): number {
   }
   return sum;
 }
-
 const CCW = "counterclockwise";
 const CW = "clockwise";
 
@@ -67,7 +67,7 @@ const ringWindingExterior: Lint<number[][]> = {
   tag: "Geometry",
   test(target) {
     const area = signedArea(target);
-    if (area === 0) return warn(`Degenerate area, could not determine winding`);
+    if (Math.abs(area) < EPSILON) return skip();
     const actual = area > 0 ? CCW : CW;
     if (actual !== CCW)
       return error(`Expected counterclockwise winding, got ${actual}`);
@@ -81,10 +81,87 @@ const ringWindingInterior: Lint<number[][]> = {
   tag: "Geometry",
   test(target) {
     const area = signedArea(target);
-    if (area === 0) return warn(`Degenerate area, could not determine winding`);
+    if (Math.abs(area) < EPSILON) return skip();
     const actual = area > 0 ? CCW : CW;
     if (actual !== CW)
       return error(`Expected clockwise winding, got ${actual}`);
+    return ok();
+  },
+};
+
+const ringDegenerateArea: Lint<number[][]> = {
+  name: "ring-degenerate-area",
+  description: "A linear ring with near-zero area is degenerate",
+  tag: "Geometry",
+  test(target) {
+    if (Math.abs(signedArea(target)) < EPSILON)
+      return warn("Ring has near-zero area (collinear or coincident positions)");
+    return ok();
+  },
+};
+
+/** Return the cross-product sign of (q-p) x (r-p). */
+function orientation(p: number[], q: number[], r: number[]): number {
+  return (q[0]! - p[0]!) * (r[1]! - p[1]!) - (q[1]! - p[1]!) * (r[0]! - p[0]!);
+}
+
+/** Check if segment (a,b) properly intersects segment (c,d). */
+function segmentsIntersect(
+  a: number[],
+  b: number[],
+  c: number[],
+  d: number[],
+): boolean {
+  const d1 = orientation(c, d, a);
+  const d2 = orientation(c, d, b);
+  const d3 = orientation(a, b, c);
+  const d4 = orientation(a, b, d);
+
+  if (((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) &&
+      ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0)))
+    return true;
+
+  // Collinear overlap cases
+  if (d1 === 0 && onSegment(c, d, a)) return true;
+  if (d2 === 0 && onSegment(c, d, b)) return true;
+  if (d3 === 0 && onSegment(a, b, c)) return true;
+  if (d4 === 0 && onSegment(a, b, d)) return true;
+
+  return false;
+}
+
+/** Check if point p lies on segment (a,b), given collinearity. */
+function onSegment(a: number[], b: number[], p: number[]): boolean {
+  return (
+    Math.min(a[0]!, b[0]!) <= p[0]! &&
+    p[0]! <= Math.max(a[0]!, b[0]!) &&
+    Math.min(a[1]!, b[1]!) <= p[1]! &&
+    p[1]! <= Math.max(a[1]!, b[1]!)
+  );
+}
+
+const ringSelfIntersection: Lint<number[][]> = {
+  name: "ring-self-intersection",
+  description: "A linear ring MUST NOT self-intersect (RFC7946 3.1.6)",
+  tag: "Geometry",
+  test(target) {
+    const n = target.length - 1; // exclude closing duplicate
+    const pairs: [number, number][] = [];
+    for (let i = 0; i < n; i++) {
+      for (let j = i + 2; j < n; j++) {
+        // Skip the pair where the last segment meets the first (they share a vertex)
+        if (i === 0 && j === n - 1) continue;
+        if (segmentsIntersect(target[i]!, target[i + 1]!, target[j]!, target[j + 1]!)) {
+          pairs.push([i, j]);
+        }
+      }
+    }
+    if (pairs.length > 0)
+      return [
+        Severity.Error,
+        `${pairs.length} self-intersection(s)`,
+        pairs,
+      ];
     return ok();
   },
 };
@@ -106,14 +183,19 @@ export function lintLinearRing(
 
   g.check(ringMinLength, arr);
   g.check(ringClosed, arr);
+  g.check(duplicatePositions, arr as number[][]);
 
   // Only continue if we have a structurally valid linear ring
   if (g.hasMaxSeverityOf()) return g.build();
 
-  const ringIndex = path[path.length - 1];
   const ring = arr as number[][];
+  g.check(ringDegenerateArea, ring);
+
+  const ringIndex = path[path.length - 1];
   if (ringIndex === 0) g.check(ringWindingExterior, ring);
   else g.check(ringWindingInterior, ring);
+
+  g.check(ringSelfIntersection, ring);
 
   return g.build();
 }

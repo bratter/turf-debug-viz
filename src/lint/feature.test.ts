@@ -1,6 +1,7 @@
 import test from "tape";
 import { lintFeature, lintFeatureCollection } from "./feature.ts";
 import { ctx, find } from "./test/helpers.ts";
+import type { LintResult } from "./types.ts";
 import { Severity } from "./types.ts";
 const point = { type: "Point", coordinates: [0, 0] };
 const feature = { type: "Feature", properties: {}, geometry: point };
@@ -95,6 +96,25 @@ test("lintFeature", (t) => {
     t.end();
   });
 
+  t.test("foreign-member", (t) => {
+    t.test("feature with extra key emits info", (t) => {
+      const g = lintFeature({ ...feature, extra: "val" }, ctx(), []);
+      const r = find(g, "foreign-member") as LintResult;
+      t.ok(r, "has foreign-member result");
+      t.equal(r.severity, Severity.Info);
+      t.deepEqual(r.path, ["extra"]);
+      t.end();
+    });
+
+    t.test("standard feature has no foreign-member result", (t) => {
+      const g = lintFeature(feature, ctx(), []);
+      t.notOk(find(g, "foreign-member"), "no foreign-member lint");
+      t.end();
+    });
+
+    t.end();
+  });
+
   t.end();
 });
 
@@ -134,6 +154,19 @@ test("lintFeatureCollection", (t) => {
       const g = lintFeatureCollection({ ...fc, features: {} }, ctx(), []);
       t.notOk(g.passed);
       t.equal(find(g, "features-is-array")!.severity, Severity.Error);
+      t.end();
+    });
+
+    t.end();
+  });
+
+  t.test("foreign-member", (t) => {
+    t.test("fc with extra key emits info", (t) => {
+      const g = lintFeatureCollection({ ...fc, extra: "val" }, ctx(), []);
+      const r = find(g, "foreign-member") as LintResult;
+      t.ok(r, "has foreign-member result");
+      t.equal(r.severity, Severity.Info);
+      t.deepEqual(r.path, ["extra"]);
       t.end();
     });
 

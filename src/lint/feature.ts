@@ -10,6 +10,7 @@ import {
   makeTypeLint,
   makeArrayLint,
   makeObjectLint,
+  foreignMember,
   skip,
   ok,
   info,
@@ -17,6 +18,9 @@ import {
 } from "./helpers.ts";
 import { lintBbox } from "./bbox.ts";
 import { lintGeometry } from "./geometry.ts";
+
+const FEATURE_KEYS = new Set(["type", "geometry", "properties", "id", "bbox"]);
+const FC_KEYS = new Set(["type", "features", "bbox"]);
 
 // FeatureCollection lints
 const fcIsObject = makeObjectLint(FEATURE_COLLECTION, { ref: "RFC7946 3.3" });
@@ -82,6 +86,10 @@ export function lintFeatureCollection(
     });
   }
 
+  for (const key of Object.keys(fc)) {
+    if (!FC_KEYS.has(key)) g.check(foreignMember, fc, key);
+  }
+
   return g.build();
 }
 
@@ -105,6 +113,10 @@ export function lintFeature(
   // Short circuit if the geometry is null - no need for the isObject check
   if (f.geometry !== null && isObject) {
     g.group(lintGeometry, f, "geometry");
+  }
+
+  for (const key of Object.keys(f)) {
+    if (!FEATURE_KEYS.has(key)) g.check(foreignMember, f, key);
   }
 
   return g.build();

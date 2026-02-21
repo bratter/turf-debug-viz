@@ -2,11 +2,13 @@
  * Bounding box lints.
  */
 
+import type { GeoJSON } from "geojson";
 import type { Lint, LintContext, LintResultGroup, Path } from "./types.ts";
+import { Severity } from "./types.ts";
 import { resultGroup, isError } from "./builder.ts";
 import {
-  isRecord,
   makeArrayLint,
+  EPSILON,
   skip,
   ok,
   info,
@@ -56,96 +58,80 @@ const bboxElements: Lint<unknown[]> = {
   },
 };
 
-// TODO: Strongly consider simplyfing this to cast to GeoJSON and wrap in a
-// try-catch, then can just return false in the error branch
-// TODO: Consider writing more tests for this
 const bboxDimensionality: Lint<number[]> = {
   name: "bbox-dimensionality",
   description:
     "A bounding box MUST be an array of length 2*n where n is the coordinate dimensionality (RFC7946 5)",
   tag: "Geometry",
   test(target, ctx) {
-    // Any error state where we can't get the first valid coordinate except
-    // where a Feature has a null geometry is an error
-    let parent = ctx.scope.parent;
-    if (!isRecord(parent)) return skip();
+    try {
+      let parent = ctx.scope.parent as GeoJSON;
 
-    // Special case to get the parent to a geometry from a feature
-    if (parent.type === FEATURE_COLLECTION) {
-      // Try to find the first feature with a non-null geometry - we use this
-      // one whether it is valid or not and just error out later if it isn't
-      if (Array.isArray(parent.features)) {
+      // Special case to get the parent to a geometry from a feature
+      if (parent.type === FEATURE_COLLECTION) {
+        // Try to find the first feature with a non-null geometry - we use this
+        // one whether it is valid or not and just error out later if it isn't
         const fWithGeom = parent.features.find((f) => f.geometry !== null);
-        if (fWithGeom) parent = fWithGeom?.geometry;
         // If all the geometries are null or there are none, the lint passes
-        else return ok();
+        if (!fWithGeom) return ok();
+        parent = fWithGeom.geometry!;
+      } else if (parent.type === FEATURE) {
+        // If feature has a null geometry, the lint passes
+        if (parent.geometry === null) return ok();
+        parent = parent.geometry;
+      }
+
+      // Special case to get a geometry collection to a geometry type - has to be
+      // done after parent reassignment from features
+      if (parent.type === GEOMETRY_COLLECTION) {
+        parent = parent.geometries[0]!;
+      }
+
+      // Now work on the geometries to get the comparison position
+      let cmp: unknown;
+      switch (parent.type) {
+        case POINT:
+          // Point is a position
+          cmp = parent.coordinates;
+          break;
+        case MULTI_POINT:
+        case LINE_STRING:
+          // Array of positions
+          cmp = parent.coordinates[0];
+          break;
+        case MULTI_LINE_STRING:
+        case POLYGON:
+          cmp = parent.coordinates[0]?.[0];
+          break;
+        case MULTI_POLYGON:
+          cmp = parent.coordinates[0]?.[0]?.[0];
+          break;
+        default:
+          // Abort if we don't have a valid geometry
+          // This includes nested geometry collections
+          return skip();
+      }
+
+      // Abandon if we don't happen to have a valid position - this will usually
+      // give a point when the first geometry is valid (and therefore might not)
+      // be any other errors, but it will miss empty multipoints inside a
+      // collection. We don't audit anything about the cmp position or bbox as
+      // that info is all covered in other lints. We choose to pass if cmp length
+      // is > 3 and bbox length is 3 - this will warn elsewhere.
+      if (Array.isArray(cmp) && cmp.length >= 2) {
+        if (
+          2 * cmp.length === target.length ||
+          (cmp.length > 3 && target.length === 6)
+        )
+          return ok();
+        else
+          return error(
+            `Bbox is not 2*n the first coordinate, coordinate dim is ${cmp.length}, bbox dim is ${target.length}`,
+          );
       } else {
-        return ok();
-      }
-    } else if (parent.type === FEATURE) {
-      parent = parent.geometry;
-      // If feature has a null geometry, the lint passes
-      if (parent === null) return ok();
-    }
-
-    // Retest as we may have reassigned
-    if (!isRecord(parent)) return skip();
-
-    // Special case to get a geometry collection to a geometry type - has to be
-    // done after parent reassignment from features
-    if (parent.type === GEOMETRY_COLLECTION) {
-      if (Array.isArray(parent.geometries)) {
-        parent = parent.geometries[0];
-      }
-    }
-
-    // Retest as we may have reassigned, then get coordinates
-    if (!isRecord(parent)) return skip();
-    const coords = parent.coordinates;
-    if (!Array.isArray(coords)) return skip();
-
-    // Now work on the geometries to get the comparison position
-    let cmp: unknown;
-    switch (parent.type) {
-      case POINT:
-        // Point is a position
-        cmp = coords;
-        break;
-      case MULTI_POINT:
-      case LINE_STRING:
-        // Array of positions
-        cmp = coords[0];
-        break;
-      case MULTI_LINE_STRING:
-      case POLYGON:
-        cmp = coords[0]?.[0];
-        break;
-      case MULTI_POLYGON:
-        cmp = coords[0]?.[0]?.[0];
-        break;
-      default:
-        // Abort if we don't have a valid geometry
-        // This includes nested geometry collections
         return skip();
-    }
-
-    // Abandon if we don't happen to have a valid position - this will usually
-    // give a point when the first geometry is valid (and therefore might not)
-    // be any other errors, but it will miss empty multipoints inside a
-    // collection. We don't audit anything about the cmp position or bbox as
-    // that info is all covered in other lints. We choose to pass if cmp length
-    // is > 3 and bbox length is 3 - this will warn elsewhere.
-    if (Array.isArray(cmp) && cmp.length >= 2) {
-      if (
-        2 * cmp.length === target.length ||
-        (cmp.length > 3 && target.length === 6)
-      )
-        return ok();
-      else
-        return error(
-          `Bbox is not 2*n the first coordinate, coordinate dim is ${cmp.length}, bbox dim is ${target.length}`,
-        );
-    } else {
+      }
+    } catch {
       return skip();
     }
   },
@@ -201,16 +187,21 @@ const bboxLatitudeOrder: Lint<number[]> = {
   },
 };
 
+/** Check if a published bbox crosses the antimeridian (west > east). */
+function isAntimeridian(bbox: number[]): boolean {
+  const half = bbox.length / 2;
+  return bbox[0]! > bbox[half]!;
+}
+
 const bboxAntimeridian: Lint<number[]> = {
   name: "bbox-antimeridian",
   description: "Bbox crosses the antimeridian (west > east) (RFC7946 5)",
   tag: "Geometry",
   test(target) {
-    const half = target.length / 2;
-    const west = target[0]!,
-      east = target[half]!;
-    if (west > east)
-      return info(`Bbox crosses the antimeridian: west=${west}, east=${east}`);
+    if (isAntimeridian(target)) {
+      const half = target.length / 2;
+      return info(`Bbox crosses the antimeridian: west=${target[0]}, east=${target[half]}`);
+    }
     return skip();
   },
 };
@@ -232,6 +223,204 @@ const bboxPolarCap: Lint<number[]> = {
     return warn(
       `Polar cap bbox should use west=-180, east=180; got west=${west}, east=${east}`,
     );
+  },
+};
+
+/** Mutable bounding box accumulator. */
+interface BboxAcc {
+  xMin: number;
+  xMax: number;
+  yMin: number;
+  yMax: number;
+  zMin: number;
+  zMax: number;
+  has3D: boolean;
+  count: number;
+}
+
+function createBboxAcc(): BboxAcc {
+  return {
+    xMin: Infinity, xMax: -Infinity,
+    yMin: Infinity, yMax: -Infinity,
+    zMin: Infinity, zMax: -Infinity,
+    has3D: false, count: 0,
+  };
+}
+
+/** Expand accumulator with a single position. Throws if position is too short or dimensionality changes. */
+function expandAcc(acc: BboxAcc, pos: number[]): void {
+  if (pos.length < 2) throw new Error("Position must have at least 2 elements");
+  const is3D = pos.length >= 3;
+  if (acc.count === 0) {
+    acc.has3D = is3D;
+  } else if (acc.has3D !== is3D) {
+    throw new Error("Mixed 2D/3D positions");
+  }
+  const x = pos[0]!, y = pos[1]!;
+  if (x < acc.xMin) acc.xMin = x;
+  if (x > acc.xMax) acc.xMax = x;
+  if (y < acc.yMin) acc.yMin = y;
+  if (y > acc.yMax) acc.yMax = y;
+  if (is3D) {
+    const z = pos[2]!;
+    if (z < acc.zMin) acc.zMin = z;
+    if (z > acc.zMax) acc.zMax = z;
+  }
+  acc.count++;
+}
+
+/**
+ * Compute the actual bounding box from a GeoJSON parent object.
+ *
+ * Assumes the parent is well-formed GeoJSON and throws on bad structure
+ * (missing coordinates, short positions, mixed dimensionality, etc.).
+ * Callers should catch.
+ */
+function computeActualBbox(parent: GeoJSON, acc?: BboxAcc): BboxAcc {
+  if (!acc) acc = createBboxAcc();
+
+  switch (parent.type) {
+    case FEATURE_COLLECTION:
+      for (const f of parent.features) computeActualBbox(f, acc);
+      break;
+    case FEATURE:
+      if (parent.geometry !== null) computeActualBbox(parent.geometry, acc);
+      break;
+    case GEOMETRY_COLLECTION:
+      for (const g of parent.geometries) computeActualBbox(g, acc);
+      break;
+    case POINT:
+      expandAcc(acc, parent.coordinates);
+      break;
+    case MULTI_POINT:
+    case LINE_STRING:
+      for (const pos of parent.coordinates) expandAcc(acc, pos);
+      break;
+    case MULTI_LINE_STRING:
+    case POLYGON:
+      for (const ring of parent.coordinates)
+        for (const pos of ring) expandAcc(acc, pos);
+      break;
+    case MULTI_POLYGON:
+      for (const poly of parent.coordinates)
+        for (const ring of poly)
+          for (const pos of ring) expandAcc(acc, pos);
+      break;
+  }
+  return acc;
+}
+
+/** Format an accumulator as a bbox array (4 or 6 elements). */
+function accToBbox(acc: BboxAcc): number[] {
+  if (acc.has3D) return [acc.xMin, acc.yMin, acc.zMin, acc.xMax, acc.yMax, acc.zMax];
+  return [acc.xMin, acc.yMin, acc.xMax, acc.yMax];
+}
+
+const bboxTooSmall: Lint<number[]> = {
+  name: "bbox-too-small",
+  description:
+    "All coordinates MUST fall within the bounding box (RFC7946 5)",
+  tag: "Geometry",
+  test(target, ctx) {
+    let acc: BboxAcc;
+    try {
+      acc = computeActualBbox(ctx.scope.parent as GeoJSON);
+    } catch {
+      return skip();
+    }
+
+    if (acc.count === 0) return info("No positions found in geometry");
+
+    // Skip antimeridian-crossing published bboxes (correct comparison is non-trivial)
+    if (isAntimeridian(target)) return skip();
+
+    const half = target.length / 2;
+    const pubWest = target[0]!, pubSouth = target[1]!;
+    const pubEast = target[half]!, pubNorth = target[half + 1]!;
+
+    const realBbox = accToBbox(acc);
+    const tooSmall =
+      acc.xMin < pubWest - EPSILON ||
+      acc.yMin < pubSouth - EPSILON ||
+      acc.xMax > pubEast + EPSILON ||
+      acc.yMax > pubNorth + EPSILON ||
+      (target.length === 6 && acc.has3D && (
+        acc.zMin < target[2]! - EPSILON ||
+        acc.zMax > target[5]! + EPSILON
+      ));
+
+    if (tooSmall)
+      return [
+        Severity.Error,
+        `Published bbox does not contain all coordinates; actual bbox is [${realBbox}]`,
+        realBbox,
+      ];
+    return ok();
+  },
+};
+
+const bboxTooLarge: Lint<number[]> = {
+  name: "bbox-too-large",
+  description:
+    "A bounding box significantly larger than the data may indicate an error",
+  tag: "Geometry",
+  test(target, ctx) {
+    let acc: BboxAcc;
+    try {
+      acc = computeActualBbox(ctx.scope.parent as GeoJSON);
+    } catch {
+      return skip();
+    }
+
+    if (acc.count === 0) return info("No positions found in geometry");
+
+    // Skip antimeridian-crossing published bboxes
+    if (isAntimeridian(target)) return skip();
+
+    const half = target.length / 2;
+    const pubWidth = target[half]! - target[0]!;
+    const pubHeight = target[half + 1]! - target[1]!;
+    const actualWidth = acc.xMax - acc.xMin;
+    const actualHeight = acc.yMax - acc.yMin;
+
+    const realBbox = accToBbox(acc);
+
+    // For zero-area geometries (points/lines), compare max dimension ratio
+    if (actualWidth < EPSILON && actualHeight < EPSILON) {
+      // Point-like: any non-zero published bbox is oversized
+      if (pubWidth > EPSILON || pubHeight > EPSILON)
+        return [
+          Severity.Info,
+          `Bbox has non-zero area but geometry is point-like; actual bbox is [${realBbox}]`,
+          realBbox,
+        ];
+      return ok();
+    }
+
+    if (actualWidth < EPSILON || actualHeight < EPSILON) {
+      // Line-like (zero in one dimension): compare the non-zero dimension
+      const pubExtent = Math.max(pubWidth, pubHeight);
+      const actualExtent = Math.max(actualWidth, actualHeight);
+      if (pubExtent > 2 * actualExtent)
+        return [
+          Severity.Info,
+          `Bbox extent is ${(pubExtent / actualExtent).toFixed(1)}x the data extent; actual bbox is [${realBbox}]`,
+          realBbox,
+        ];
+      return ok();
+    }
+
+    // 2D area comparison
+    const pubArea = pubWidth * pubHeight;
+    const actualArea = actualWidth * actualHeight;
+
+    if (pubArea > 2 * actualArea)
+      return [
+        Severity.Info,
+        `Bbox area is ${(pubArea / actualArea).toFixed(1)}x the data extent; actual bbox is [${realBbox}]`,
+        realBbox,
+      ];
+    return ok();
   },
 };
 
@@ -259,6 +448,8 @@ export function lintBbox(
   g.check(bboxLatitudeOrder, nums);
   g.check(bboxAntimeridian, nums);
   g.check(bboxPolarCap, nums);
+  g.check(bboxTooSmall, nums);
+  g.check(bboxTooLarge, nums);
 
   return g.build();
 }

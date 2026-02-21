@@ -1,7 +1,7 @@
 import test from "tape";
 import { lintLineString, lintMultiLineString } from "./linestring.ts";
 import { ctx, find } from "./test/helpers.ts";
-import type { LintResultGroup } from "./types.ts";
+import type { LintResult, LintResultGroup } from "./types.ts";
 import { Severity } from "./types.ts";
 
 test("lintLineString", (t) => {
@@ -71,6 +71,123 @@ test("lintLineString", (t) => {
       );
       t.ok(g.passed);
       t.equal(find(g, "line-min-length")!.severity, Severity.Ok);
+      t.end();
+    });
+
+    t.test("no duplicate positions passes", (t) => {
+      const g = lintLineString(
+        [
+          [0, 0],
+          [1, 1],
+          [2, 2],
+        ],
+        ctx(),
+        [],
+      );
+      t.equal(find(g, "duplicate-positions")!.severity, Severity.Ok);
+      t.end();
+    });
+
+    t.test("adjacent duplicate positions warns with data", (t) => {
+      const g = lintLineString(
+        [
+          [0, 0],
+          [1, 1],
+          [1, 1],
+          [2, 2],
+        ],
+        ctx(),
+        [],
+      );
+      const r = find(g, "duplicate-positions") as LintResult;
+      t.equal(r.severity, Severity.Warn);
+      t.deepEqual(r.data, [2]);
+      t.end();
+    });
+
+    t.test("3D duplicate positions detected", (t) => {
+      const g = lintLineString(
+        [
+          [0, 0, 10],
+          [0, 0, 10],
+          [1, 1, 20],
+        ],
+        ctx(),
+        [],
+      );
+      const r = find(g, "duplicate-positions") as LintResult;
+      t.equal(r.severity, Severity.Warn);
+      t.deepEqual(r.data, [1]);
+      t.end();
+    });
+
+    t.test("non-consecutive same positions ok", (t) => {
+      const g = lintLineString(
+        [
+          [0, 0],
+          [1, 1],
+          [0, 0],
+        ],
+        ctx(),
+        [],
+      );
+      t.equal(find(g, "duplicate-positions")!.severity, Severity.Ok);
+      t.end();
+    });
+
+    t.test("multiple consecutive duplicates", (t) => {
+      const g = lintLineString(
+        [
+          [0, 0],
+          [0, 0],
+          [1, 1],
+          [1, 1],
+        ],
+        ctx(),
+        [],
+      );
+      const r = find(g, "duplicate-positions") as LintResult;
+      t.equal(r.severity, Severity.Warn);
+      t.deepEqual(r.data, [1, 3]);
+      t.end();
+    });
+
+    t.test("line-degenerate: all identical positions warns", (t) => {
+      const g = lintLineString(
+        [
+          [5, 5],
+          [5, 5],
+        ],
+        ctx(),
+        [],
+      );
+      t.equal(find(g, "line-degenerate")!.severity, Severity.Warn);
+      t.end();
+    });
+
+    t.test("line-degenerate: within-epsilon warns", (t) => {
+      const g = lintLineString(
+        [
+          [5, 5],
+          [5 + 1e-16, 5 + 1e-16],
+        ],
+        ctx(),
+        [],
+      );
+      t.equal(find(g, "line-degenerate")!.severity, Severity.Warn);
+      t.end();
+    });
+
+    t.test("line-degenerate: normal line passes", (t) => {
+      const g = lintLineString(
+        [
+          [0, 0],
+          [1, 1],
+        ],
+        ctx(),
+        [],
+      );
+      t.equal(find(g, "line-degenerate")!.severity, Severity.Ok);
       t.end();
     });
 

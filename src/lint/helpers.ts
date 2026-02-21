@@ -5,6 +5,8 @@
 import type { Lint } from "./types.ts";
 import { Severity } from "./types.ts";
 
+export const EPSILON = 1e-15;
+
 /** Type guard to check that a value is a non-null object. */
 export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -35,6 +37,13 @@ export function warn(msg: string): [Severity, string] {
 export function error(msg: string): [Severity, string] {
   return [Severity.Error, msg];
 }
+
+export const foreignMember: Lint = {
+  name: "foreign-member",
+  description: "Foreign members MAY be present in GeoJSON documents, but support can vary (RFC7946 6.1)",
+  tag: "Schema",
+  test: () => info("This member is a foreign member"),
+};
 
 /**
  * Factory function that creates a lint checking if a value is an Array.

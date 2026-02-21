@@ -202,6 +202,194 @@ test("lintBbox", (t) => {
       t.end();
     });
 
+    t.test("bbox-too-small: containing bbox passes", (t) => {
+      const parent = {
+        type: "Polygon",
+        coordinates: [
+          [
+            [0, 0],
+            [1, 0],
+            [1, 1],
+            [0, 1],
+            [0, 0],
+          ],
+        ],
+      };
+      const g = lintBbox([0, 0, 1, 1], withScope(ctx(), { parent }), [])!;
+      t.equal(find(g, "bbox-too-small")!.severity, Severity.Ok);
+      t.end();
+    });
+
+    t.test("bbox-too-small: coordinate outside bounds fails with real bbox", (t) => {
+      const parent = {
+        type: "Point",
+        coordinates: [2, 2],
+      };
+      const g = lintBbox([0, 0, 1, 1], withScope(ctx(), { parent }), [])!;
+      const r = find(g, "bbox-too-small") as LintResult;
+      t.equal(r.severity, Severity.Error);
+      t.deepEqual(r.data, [2, 2, 2, 2], "data contains actual bbox");
+      t.end();
+    });
+
+    t.test("bbox-too-small: antimeridian crossing skips", (t) => {
+      const parent = {
+        type: "Point",
+        coordinates: [170, 0],
+      };
+      const g = lintBbox([170, -10, -170, 10], withScope(ctx(), { parent }), [])!;
+      t.equal(find(g, "bbox-too-small")!.severity, Severity.Skip);
+      t.end();
+    });
+
+    t.test("bbox-too-small: null geometry emits info (no positions)", (t) => {
+      const parent = {
+        type: "Feature",
+        geometry: null,
+        properties: {},
+      };
+      const g = lintBbox([0, 0, 1, 1], withScope(ctx(), { parent }), [])!;
+      t.equal(find(g, "bbox-too-small")!.severity, Severity.Info);
+      t.end();
+    });
+
+    t.test("bbox-too-small: FC collects from all features", (t) => {
+      const parent = {
+        type: "FeatureCollection",
+        features: [
+          {
+            type: "Feature",
+            geometry: { type: "Point", coordinates: [0, 0] },
+            properties: {},
+          },
+          {
+            type: "Feature",
+            geometry: { type: "Point", coordinates: [5, 5] },
+            properties: {},
+          },
+        ],
+      };
+      const g = lintBbox([0, 0, 5, 5], withScope(ctx(), { parent }), [])!;
+      t.equal(find(g, "bbox-too-small")!.severity, Severity.Ok);
+      t.end();
+    });
+
+    t.test("bbox-too-small: 3D bbox with 3D coordinates passes", (t) => {
+      const parent = {
+        type: "LineString",
+        coordinates: [
+          [0, 0, 10],
+          [1, 1, 20],
+        ],
+      };
+      const g = lintBbox([0, 0, 10, 1, 1, 20], withScope(ctx(), { parent }), [])!;
+      t.equal(find(g, "bbox-too-small")!.severity, Severity.Ok);
+      t.end();
+    });
+
+    t.test("bbox-too-small: 3D bbox too small in z fails", (t) => {
+      const parent = {
+        type: "LineString",
+        coordinates: [
+          [0, 0, 10],
+          [1, 1, 30],
+        ],
+      };
+      const g = lintBbox([0, 0, 10, 1, 1, 20], withScope(ctx(), { parent }), [])!;
+      t.equal(find(g, "bbox-too-small")!.severity, Severity.Error);
+      t.end();
+    });
+
+    t.test("bbox-too-large: matching bbox passes", (t) => {
+      const parent = {
+        type: "Polygon",
+        coordinates: [
+          [
+            [0, 0],
+            [1, 0],
+            [1, 1],
+            [0, 1],
+            [0, 0],
+          ],
+        ],
+      };
+      const g = lintBbox([0, 0, 1, 1], withScope(ctx(), { parent }), [])!;
+      t.equal(find(g, "bbox-too-large")!.severity, Severity.Ok);
+      t.end();
+    });
+
+    t.test("bbox-too-large: >2x area emits info with real bbox", (t) => {
+      const parent = {
+        type: "Polygon",
+        coordinates: [
+          [
+            [0, 0],
+            [1, 0],
+            [1, 1],
+            [0, 1],
+            [0, 0],
+          ],
+        ],
+      };
+      const g = lintBbox([0, 0, 10, 10], withScope(ctx(), { parent }), [])!;
+      const r = find(g, "bbox-too-large") as LintResult;
+      t.equal(r.severity, Severity.Info);
+      t.deepEqual(r.data, [0, 0, 1, 1], "data contains actual bbox");
+      t.end();
+    });
+
+    t.test("bbox-too-large: under threshold passes", (t) => {
+      const parent = {
+        type: "Polygon",
+        coordinates: [
+          [
+            [0, 0],
+            [1, 0],
+            [1, 1],
+            [0, 1],
+            [0, 0],
+          ],
+        ],
+      };
+      const g = lintBbox([0, 0, 1.3, 1.3], withScope(ctx(), { parent }), [])!;
+      t.equal(find(g, "bbox-too-large")!.severity, Severity.Ok);
+      t.end();
+    });
+
+    t.test("bbox-too-large: point-like geometry with non-zero bbox emits info", (t) => {
+      const parent = {
+        type: "Point",
+        coordinates: [0, 0],
+      };
+      const g = lintBbox([0, 0, 1, 1], withScope(ctx(), { parent }), [])!;
+      t.equal(find(g, "bbox-too-large")!.severity, Severity.Info);
+      t.end();
+    });
+
+    t.test("bbox-too-large: point with tight bbox passes", (t) => {
+      const parent = {
+        type: "Point",
+        coordinates: [5, 5],
+      };
+      const g = lintBbox([5, 5, 5, 5], withScope(ctx(), { parent }), [])!;
+      t.equal(find(g, "bbox-too-large")!.severity, Severity.Ok);
+      t.end();
+    });
+
+    t.test("bbox-too-large: line-like geometry with oversized bbox emits info", (t) => {
+      const parent = {
+        type: "LineString",
+        coordinates: [
+          [0, 0],
+          [1, 0],
+        ],
+      };
+      // Horizontal line, bbox is 10 wide but data is 1 wide
+      const g = lintBbox([0, 0, 10, 0], withScope(ctx(), { parent }), [])!;
+      t.equal(find(g, "bbox-too-large")!.severity, Severity.Info);
+      t.end();
+    });
+
     t.test("schema failure skips geometry lints", (t) => {
       const g = lintBbox([0, "a", 1, 1], ctx(), [])!;
       t.notOk(g.passed);

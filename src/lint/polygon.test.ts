@@ -197,6 +197,123 @@ test("lintLinearRing", (t) => {
       t.end();
     });
 
+    t.test("ring with duplicate positions warns", (t) => {
+      const result = lintLinearRing(
+        [
+          [0, 0],
+          [1, 0],
+          [1, 0],
+          [1, 1],
+          [0, 0],
+        ],
+        ctx(),
+        ["coordinates", 0],
+      );
+      const r = find(result, "duplicate-positions") as LintResult;
+      t.equal(r.severity, Severity.Warn);
+      t.deepEqual(r.data, [2]);
+      t.end();
+    });
+
+    t.test("ring-degenerate-area: collinear ring warns", (t) => {
+      // All points on a line: 0,0 → 1,0 → 2,0 → 0,0
+      const result = lintLinearRing(
+        [
+          [0, 0],
+          [1, 0],
+          [2, 0],
+          [0, 0],
+        ],
+        ctx(),
+        ["coordinates", 0],
+      );
+      const r = find(result, "ring-degenerate-area") as LintResult;
+      t.equal(r.severity, Severity.Warn);
+      t.end();
+    });
+
+    t.test("ring-degenerate-area: normal ring passes", (t) => {
+      const result = lintLinearRing(
+        [
+          [0, 0],
+          [1, 0],
+          [1, 1],
+          [0, 0],
+        ],
+        ctx(),
+        ["coordinates", 0],
+      );
+      t.equal(find(result, "ring-degenerate-area")!.severity, Severity.Ok);
+      t.end();
+    });
+
+    t.test("degenerate ring skips winding (not warn)", (t) => {
+      const result = lintLinearRing(
+        [
+          [0, 0],
+          [1, 0],
+          [2, 0],
+          [0, 0],
+        ],
+        ctx(),
+        ["coordinates", 0],
+      );
+      t.equal(find(result, "ring-winding-exterior")!.severity, Severity.Skip);
+      t.end();
+    });
+
+    t.test("ring-self-intersection: simple ring passes", (t) => {
+      const result = lintLinearRing(
+        [
+          [0, 0],
+          [1, 0],
+          [1, 1],
+          [0, 0],
+        ],
+        ctx(),
+        ["coordinates", 0],
+      );
+      t.equal(find(result, "ring-self-intersection")!.severity, Severity.Ok);
+      t.end();
+    });
+
+    t.test("ring-self-intersection: bowtie ring detects intersection", (t) => {
+      // A bowtie: 0,0 → 1,1 → 1,0 → 0,1 → 0,0
+      const result = lintLinearRing(
+        [
+          [0, 0],
+          [1, 1],
+          [1, 0],
+          [0, 1],
+          [0, 0],
+        ],
+        ctx(),
+        ["coordinates", 0],
+      );
+      const r = find(result, "ring-self-intersection") as LintResult;
+      t.equal(r.severity, Severity.Error);
+      t.ok(r.message!.includes("self-intersection"));
+      t.ok(Array.isArray(r.data), "has data with pairs");
+      t.end();
+    });
+
+    t.test("ring-self-intersection: first/last vertex sharing skipped", (t) => {
+      // A valid closed ring shares first/last vertex — should not count as intersection
+      const result = lintLinearRing(
+        [
+          [0, 0],
+          [2, 0],
+          [2, 2],
+          [0, 2],
+          [0, 0],
+        ],
+        ctx(),
+        ["coordinates", 0],
+      );
+      t.equal(find(result, "ring-self-intersection")!.severity, Severity.Ok);
+      t.end();
+    });
+
     t.end();
   });
 
