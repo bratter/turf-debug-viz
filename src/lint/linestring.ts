@@ -2,7 +2,13 @@
  * LineString and MultiLineString geometry lints.
  */
 
-import { Severity, type Lint, type LintContext, type LintResultGroup, type Path } from "./types.ts";
+import {
+  Severity,
+  type Lint,
+  type LintContext,
+  type LintResultGroup,
+  type Path,
+} from "./types.ts";
 import { resultGroup, isError } from "./builder.ts";
 import { makeArrayLint, EPSILON, ok, warn, error } from "./helpers.ts";
 import { lintPosition } from "./position.ts";
@@ -22,10 +28,7 @@ export const duplicatePositions: Lint<number[][]> = {
     for (let i = 1; i < target.length; i++) {
       const prev = target[i - 1]!;
       const cur = target[i]!;
-      if (
-        prev.length === cur.length &&
-        prev.every((v, j) => v === cur[j])
-      ) {
+      if (prev.length === cur.length && prev.every((v, j) => v === cur[j])) {
         dupes.push(i);
       }
     }

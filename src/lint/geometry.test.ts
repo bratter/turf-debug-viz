@@ -63,11 +63,7 @@ test("lintGeometry", (t) => {
     });
 
     t.test("standard geometry has no foreign-member result", (t) => {
-      const g = lintGeometry(
-        { type: "Point", coordinates: [0, 0] },
-        ctx(),
-        [],
-      );
+      const g = lintGeometry({ type: "Point", coordinates: [0, 0] }, ctx(), []);
       t.notOk(findDeep(g, "foreign-member"), "no foreign-member lint");
       t.end();
     });

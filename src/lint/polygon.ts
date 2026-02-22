@@ -95,7 +95,9 @@ const ringDegenerateArea: Lint<number[][]> = {
   tag: "Geometry",
   test(target) {
     if (Math.abs(signedArea(target)) < EPSILON)
-      return warn("Ring has near-zero area (collinear or coincident positions)");
+      return warn(
+        "Ring has near-zero area (collinear or coincident positions)",
+      );
     return ok();
   },
 };
@@ -117,8 +119,10 @@ function segmentsIntersect(
   const d3 = orientation(a, b, c);
   const d4 = orientation(a, b, d);
 
-  if (((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) &&
-      ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0)))
+  if (
+    ((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) &&
+    ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0))
+  )
     return true;
 
   // Collinear overlap cases
@@ -151,17 +155,20 @@ const ringSelfIntersection: Lint<number[][]> = {
       for (let j = i + 2; j < n; j++) {
         // Skip the pair where the last segment meets the first (they share a vertex)
         if (i === 0 && j === n - 1) continue;
-        if (segmentsIntersect(target[i]!, target[i + 1]!, target[j]!, target[j + 1]!)) {
+        if (
+          segmentsIntersect(
+            target[i]!,
+            target[i + 1]!,
+            target[j]!,
+            target[j + 1]!,
+          )
+        ) {
           pairs.push([i, j]);
         }
       }
     }
     if (pairs.length > 0)
-      return [
-        Severity.Error,
-        `${pairs.length} self-intersection(s)`,
-        pairs,
-      ];
+      return [Severity.Error, `${pairs.length} self-intersection(s)`, pairs];
     return ok();
   },
 };

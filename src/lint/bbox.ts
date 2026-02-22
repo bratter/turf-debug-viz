@@ -200,7 +200,9 @@ const bboxAntimeridian: Lint<number[]> = {
   test(target) {
     if (isAntimeridian(target)) {
       const half = target.length / 2;
-      return info(`Bbox crosses the antimeridian: west=${target[0]}, east=${target[half]}`);
+      return info(
+        `Bbox crosses the antimeridian: west=${target[0]}, east=${target[half]}`,
+      );
     }
     return skip();
   },
@@ -226,10 +228,24 @@ const bboxPolarCap: Lint<number[]> = {
   },
 };
 
+/** Shift negative longitudes into [180, 360) to enable antimeridian-aware comparison. */
+function shiftLng(x: number): number {
+  return x < 0 ? x + 360 : x;
+}
+
+/** Convert shifted longitude back to [-180, 180]. */
+function unshiftLng(x: number): number {
+  return x > 180 ? x - 360 : x;
+}
+
 /** Mutable bounding box accumulator. */
-interface BboxAcc {
+export interface BboxAcc {
   xMin: number;
   xMax: number;
+  /** Min longitude in shifted space (negative lngs + 360) for antimeridian handling */
+  xMinS: number;
+  /** Max longitude in shifted space (negative lngs + 360) for antimeridian handling */
+  xMaxS: number;
   yMin: number;
   yMax: number;
   zMin: number;
@@ -240,10 +256,16 @@ interface BboxAcc {
 
 function createBboxAcc(): BboxAcc {
   return {
-    xMin: Infinity, xMax: -Infinity,
-    yMin: Infinity, yMax: -Infinity,
-    zMin: Infinity, zMax: -Infinity,
-    has3D: false, count: 0,
+    xMin: Infinity,
+    xMax: -Infinity,
+    xMinS: Infinity,
+    xMaxS: -Infinity,
+    yMin: Infinity,
+    yMax: -Infinity,
+    zMin: Infinity,
+    zMax: -Infinity,
+    has3D: false,
+    count: 0,
   };
 }
 
@@ -256,9 +278,13 @@ function expandAcc(acc: BboxAcc, pos: number[]): void {
   } else if (acc.has3D !== is3D) {
     throw new Error("Mixed 2D/3D positions");
   }
-  const x = pos[0]!, y = pos[1]!;
+  const x = pos[0]!,
+    y = pos[1]!;
   if (x < acc.xMin) acc.xMin = x;
   if (x > acc.xMax) acc.xMax = x;
+  const xs = shiftLng(x);
+  if (xs < acc.xMinS) acc.xMinS = xs;
+  if (xs > acc.xMaxS) acc.xMaxS = xs;
   if (y < acc.yMin) acc.yMin = y;
   if (y > acc.yMax) acc.yMax = y;
   if (is3D) {
@@ -276,7 +302,7 @@ function expandAcc(acc: BboxAcc, pos: number[]): void {
  * (missing coordinates, short positions, mixed dimensionality, etc.).
  * Callers should catch.
  */
-function computeActualBbox(parent: GeoJSON, acc?: BboxAcc): BboxAcc {
+export function computeActualBbox(parent: GeoJSON, acc?: BboxAcc): BboxAcc {
   if (!acc) acc = createBboxAcc();
 
   switch (parent.type) {
@@ -303,57 +329,81 @@ function computeActualBbox(parent: GeoJSON, acc?: BboxAcc): BboxAcc {
       break;
     case MULTI_POLYGON:
       for (const poly of parent.coordinates)
-        for (const ring of poly)
-          for (const pos of ring) expandAcc(acc, pos);
+        for (const ring of poly) for (const pos of ring) expandAcc(acc, pos);
       break;
   }
   return acc;
 }
 
-/** Format an accumulator as a bbox array (4 or 6 elements). */
-function accToBbox(acc: BboxAcc): number[] {
-  if (acc.has3D) return [acc.xMin, acc.yMin, acc.zMin, acc.xMax, acc.yMax, acc.zMax];
+/** Format an accumulator as a non-AM-crossing bbox (4 or 6 elements). */
+export function accToBbox(acc: BboxAcc): number[] {
+  if (acc.has3D)
+    return [acc.xMin, acc.yMin, acc.zMin, acc.xMax, acc.yMax, acc.zMax];
   return [acc.xMin, acc.yMin, acc.xMax, acc.yMax];
+}
+
+/** Format an accumulator as an AM-crossing bbox (west > east when data spans the antimeridian). */
+export function accToAmBbox(acc: BboxAcc): number[] {
+  const west = unshiftLng(acc.xMinS);
+  const east = unshiftLng(acc.xMaxS);
+  if (acc.has3D) return [west, acc.yMin, acc.zMin, east, acc.yMax, acc.zMax];
+  return [west, acc.yMin, east, acc.yMax];
+}
+
+/** Compute both bbox representations and their widths from an accumulator. */
+export function bothBboxes(acc: BboxAcc) {
+  const normal = accToBbox(acc);
+  const amCrossing = accToAmBbox(acc);
+  const normalWidth = acc.xMax - acc.xMin;
+  const shiftedWidth = acc.xMaxS - acc.xMinS;
+  return { acc, normal, amCrossing, normalWidth, shiftedWidth };
 }
 
 const bboxTooSmall: Lint<number[]> = {
   name: "bbox-too-small",
-  description:
-    "All coordinates MUST fall within the bounding box (RFC7946 5)",
+  description: "All coordinates MUST fall within the bounding box (RFC7946 5)",
   tag: "Geometry",
   test(target, ctx) {
-    let acc: BboxAcc;
-    try {
-      acc = computeActualBbox(ctx.scope.parent as GeoJSON);
-    } catch {
-      return skip();
-    }
+    const bboxData = ctx.scope.bbox as
+      | ReturnType<typeof bothBboxes>
+      | undefined;
+    if (!bboxData) return skip();
+
+    const { acc, normal, amCrossing } = bboxData;
 
     if (acc.count === 0) return info("No positions found in geometry");
 
-    // Skip antimeridian-crossing published bboxes (correct comparison is non-trivial)
-    if (isAntimeridian(target)) return skip();
-
     const half = target.length / 2;
-    const pubWest = target[0]!, pubSouth = target[1]!;
-    const pubEast = target[half]!, pubNorth = target[half + 1]!;
+    const pubSouth = target[1]!,
+      pubNorth = target[half + 1]!;
 
-    const realBbox = accToBbox(acc);
+    // Longitude containment: compare in shifted space for AM-crossing published bboxes,
+    // normal space otherwise
+    let xTooSmall: boolean;
+    const isAM = isAntimeridian(target);
+    if (isAM) {
+      const pubWestS = shiftLng(target[0]!);
+      const pubEastS = shiftLng(target[half]!);
+      xTooSmall =
+        acc.xMinS < pubWestS - EPSILON || acc.xMaxS > pubEastS + EPSILON;
+    } else {
+      xTooSmall =
+        acc.xMin < target[0]! - EPSILON || acc.xMax > target[half]! + EPSILON;
+    }
+
     const tooSmall =
-      acc.xMin < pubWest - EPSILON ||
+      xTooSmall ||
       acc.yMin < pubSouth - EPSILON ||
-      acc.xMax > pubEast + EPSILON ||
       acc.yMax > pubNorth + EPSILON ||
-      (target.length === 6 && acc.has3D && (
-        acc.zMin < target[2]! - EPSILON ||
-        acc.zMax > target[5]! + EPSILON
-      ));
+      (target.length === 6 &&
+        acc.has3D &&
+        (acc.zMin < target[2]! - EPSILON || acc.zMax > target[5]! + EPSILON));
 
     if (tooSmall)
       return [
         Severity.Error,
-        `Published bbox does not contain all coordinates; actual bbox is [${realBbox}]`,
-        realBbox,
+        `Published bbox does not contain all coordinates; actual bbox${isAM ? " (AM crossing)" : ""} is [${isAM ? amCrossing : normal}]`,
+        isAM ? amCrossing : normal,
       ];
     return ok();
   },
@@ -365,25 +415,29 @@ const bboxTooLarge: Lint<number[]> = {
     "A bounding box significantly larger than the data may indicate an error",
   tag: "Geometry",
   test(target, ctx) {
-    let acc: BboxAcc;
-    try {
-      acc = computeActualBbox(ctx.scope.parent as GeoJSON);
-    } catch {
-      return skip();
-    }
+    const bboxData = ctx.scope.bbox as
+      | ReturnType<typeof bothBboxes>
+      | undefined;
+    if (!bboxData) return skip();
+
+    const { acc, normal, amCrossing, normalWidth, shiftedWidth } = bboxData;
 
     if (acc.count === 0) return info("No positions found in geometry");
 
-    // Skip antimeridian-crossing published bboxes
-    if (isAntimeridian(target)) return skip();
-
     const half = target.length / 2;
-    const pubWidth = target[half]! - target[0]!;
+    const isAM = isAntimeridian(target);
+    // Published width: for AM-crossing bboxes, add 360 to get the actual span
+    const pubWidth = isAM
+      ? target[half]! - target[0]! + 360
+      : target[half]! - target[0]!;
     const pubHeight = target[half + 1]! - target[1]!;
-    const actualWidth = acc.xMax - acc.xMin;
+
+    // Compare against the same representation type as the published bbox
+    const actualWidth = isAM ? shiftedWidth : normalWidth;
     const actualHeight = acc.yMax - acc.yMin;
 
-    const realBbox = accToBbox(acc);
+    // Return the bbox that matches the published bbox type
+    const realBbox = isAM ? amCrossing : normal;
 
     // For zero-area geometries (points/lines), compare max dimension ratio
     if (actualWidth < EPSILON && actualHeight < EPSILON) {
@@ -424,6 +478,39 @@ const bboxTooLarge: Lint<number[]> = {
   },
 };
 
+const bboxSuboptimalSpan: Lint<number[]> = {
+  name: "bbox-suboptimal-span",
+  description:
+    "Bbox should use the narrower longitude representation when data crosses the antimeridian",
+  tag: "Geometry",
+  test(target, ctx) {
+    const bboxData = ctx.scope.bbox as
+      | ReturnType<typeof bothBboxes>
+      | undefined;
+    if (!bboxData) return skip();
+
+    const { acc, normal, amCrossing, normalWidth, shiftedWidth } = bboxData;
+
+    if (acc.count === 0) return skip();
+
+    // If both representations have the same width, either is fine
+    if (Math.abs(normalWidth - shiftedWidth) < EPSILON) return ok();
+
+    const pubIsAM = isAntimeridian(target);
+    const shouldBeAM = shiftedWidth < normalWidth;
+
+    if (pubIsAM !== shouldBeAM) {
+      const better = shouldBeAM ? amCrossing : normal;
+      return [
+        Severity.Info,
+        `Bbox uses a wider longitude span than necessary; narrower bbox is the ${shouldBeAM ? "AM crossing" : "standard"} one: [${better}]`,
+        better,
+      ];
+    }
+    return ok();
+  },
+};
+
 export function lintBbox(
   bbox: unknown,
   ctx: LintContext,
@@ -448,8 +535,21 @@ export function lintBbox(
   g.check(bboxLatitudeOrder, nums);
   g.check(bboxAntimeridian, nums);
   g.check(bboxPolarCap, nums);
-  g.check(bboxTooSmall, nums);
-  g.check(bboxTooLarge, nums);
+
+  // Pre-compute actual bbox data for the sizing/span lints
+  try {
+    ctx.scope.bbox = bothBboxes(computeActualBbox(ctx.scope.parent as GeoJSON));
+
+    const tooSmallSev = g.check(bboxTooSmall, nums);
+    const tooLargeSev = g.check(bboxTooLarge, nums);
+
+    // Only check span orientation if the bbox is roughly the right size
+    if (tooSmallSev < Severity.Info && tooLargeSev < Severity.Info) {
+      g.check(bboxSuboptimalSpan, nums);
+    }
+  } catch {
+    // Leave unset; just skip lints
+  }
 
   return g.build();
 }

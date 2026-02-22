@@ -17,6 +17,7 @@ export interface LintSettings {
 export interface Scope {
   /** The parent GeoJson object to enable lints to backtrack */
   parent?: unknown;
+  [key: string]: unknown;
 }
 
 /** Context threaded through the entire lint tree */
@@ -98,8 +99,8 @@ export interface LintResult {
 }
 
 export interface LintResultDupPositions extends LintResult {
-  name: "duplicate-positions",
-  data: number[],
+  name: "duplicate-positions";
+  data: number[];
 }
 
 export type LintResultTypes = LintResultDupPositions | LintResult;

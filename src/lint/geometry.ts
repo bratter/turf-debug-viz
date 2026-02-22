@@ -73,7 +73,8 @@ export function lintGeometry(
   g.check(typeIsGeometry, geom, "type");
   g.group(lintBbox, geom, "bbox");
 
-  const allowedKeys = geom.type === GEOMETRY_COLLECTION ? GC_KEYS : GEOMETRY_KEYS;
+  const allowedKeys =
+    geom.type === GEOMETRY_COLLECTION ? GC_KEYS : GEOMETRY_KEYS;
   for (const key of Object.keys(geom)) {
     if (!allowedKeys.has(key)) g.check(foreignMember, geom, key);
   }

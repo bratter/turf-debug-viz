@@ -37,10 +37,7 @@ export function lintFlat(
   settings: Partial<LintSettings> = {},
 ): LintResultGroup {
   const results = lint(target, settings);
-  const filtered = filterLintResult(
-    results,
-    (r) => r.passed && r.severity >= severity,
-  );
+  const filtered = filterLintResult(results, (r) => r.severity >= severity);
 
   return flattenLintResult(filtered);
 }

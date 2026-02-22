@@ -220,27 +220,69 @@ test("lintBbox", (t) => {
       t.end();
     });
 
-    t.test("bbox-too-small: coordinate outside bounds fails with real bbox", (t) => {
-      const parent = {
-        type: "Point",
-        coordinates: [2, 2],
-      };
-      const g = lintBbox([0, 0, 1, 1], withScope(ctx(), { parent }), [])!;
-      const r = find(g, "bbox-too-small") as LintResult;
-      t.equal(r.severity, Severity.Error);
-      t.deepEqual(r.data, [2, 2, 2, 2], "data contains actual bbox");
-      t.end();
-    });
+    t.test(
+      "bbox-too-small: coordinate outside bounds fails with actual bbox",
+      (t) => {
+        const parent = {
+          type: "Point",
+          coordinates: [2, 2],
+        };
+        const g = lintBbox([0, 0, 1, 1], withScope(ctx(), { parent }), [])!;
+        const r = find(g, "bbox-too-small") as LintResult;
+        t.equal(r.severity, Severity.Error);
+        t.deepEqual(r.data, [2, 2, 2, 2], "data contains actual bbox");
+        t.end();
+      },
+    );
 
-    t.test("bbox-too-small: antimeridian crossing skips", (t) => {
-      const parent = {
-        type: "Point",
-        coordinates: [170, 0],
-      };
-      const g = lintBbox([170, -10, -170, 10], withScope(ctx(), { parent }), [])!;
-      t.equal(find(g, "bbox-too-small")!.severity, Severity.Skip);
-      t.end();
-    });
+    t.test(
+      "bbox-too-small: AM-crossing published bbox containing data passes",
+      (t) => {
+        const parent = {
+          type: "MultiPoint",
+          coordinates: [
+            [175, 0],
+            [-175, 0],
+          ],
+        };
+        const g = lintBbox(
+          [170, -10, -170, 10],
+          withScope(ctx(), { parent }),
+          [],
+        )!;
+        t.equal(find(g, "bbox-too-small")!.severity, Severity.Ok);
+        t.end();
+      },
+    );
+
+    t.test(
+      "bbox-too-small: AM-crossing published bbox too small fails",
+      (t) => {
+        const parent = {
+          type: "MultiPoint",
+          coordinates: [
+            [175, 0],
+            [-175, 0],
+            [160, 0],
+          ],
+        };
+        // Published bbox [170, -10, -170, 10] doesn't contain lng 160
+        const g = lintBbox(
+          [170, -10, -170, 10],
+          withScope(ctx(), { parent }),
+          [],
+        )!;
+        const r = find(g, "bbox-too-small") as LintResult;
+        t.equal(r.severity, Severity.Error);
+        // Data is the AM-crossing actual bbox since published is AM-crossing
+        t.deepEqual(
+          r.data,
+          [160, 0, -175, 0],
+          "data contains AM-crossing actual bbox",
+        );
+        t.end();
+      },
+    );
 
     t.test("bbox-too-small: null geometry emits info (no positions)", (t) => {
       const parent = {
@@ -282,7 +324,11 @@ test("lintBbox", (t) => {
           [1, 1, 20],
         ],
       };
-      const g = lintBbox([0, 0, 10, 1, 1, 20], withScope(ctx(), { parent }), [])!;
+      const g = lintBbox(
+        [0, 0, 10, 1, 1, 20],
+        withScope(ctx(), { parent }),
+        [],
+      )!;
       t.equal(find(g, "bbox-too-small")!.severity, Severity.Ok);
       t.end();
     });
@@ -295,7 +341,11 @@ test("lintBbox", (t) => {
           [1, 1, 30],
         ],
       };
-      const g = lintBbox([0, 0, 10, 1, 1, 20], withScope(ctx(), { parent }), [])!;
+      const g = lintBbox(
+        [0, 0, 10, 1, 1, 20],
+        withScope(ctx(), { parent }),
+        [],
+      )!;
       t.equal(find(g, "bbox-too-small")!.severity, Severity.Error);
       t.end();
     });
@@ -318,7 +368,7 @@ test("lintBbox", (t) => {
       t.end();
     });
 
-    t.test("bbox-too-large: >2x area emits info with real bbox", (t) => {
+    t.test("bbox-too-large: >2x area emits info with actual bbox", (t) => {
       const parent = {
         type: "Polygon",
         coordinates: [
@@ -356,15 +406,18 @@ test("lintBbox", (t) => {
       t.end();
     });
 
-    t.test("bbox-too-large: point-like geometry with non-zero bbox emits info", (t) => {
-      const parent = {
-        type: "Point",
-        coordinates: [0, 0],
-      };
-      const g = lintBbox([0, 0, 1, 1], withScope(ctx(), { parent }), [])!;
-      t.equal(find(g, "bbox-too-large")!.severity, Severity.Info);
-      t.end();
-    });
+    t.test(
+      "bbox-too-large: point-like geometry with non-zero bbox emits info",
+      (t) => {
+        const parent = {
+          type: "Point",
+          coordinates: [0, 0],
+        };
+        const g = lintBbox([0, 0, 1, 1], withScope(ctx(), { parent }), [])!;
+        t.equal(find(g, "bbox-too-large")!.severity, Severity.Info);
+        t.end();
+      },
+    );
 
     t.test("bbox-too-large: point with tight bbox passes", (t) => {
       const parent = {
@@ -376,19 +429,94 @@ test("lintBbox", (t) => {
       t.end();
     });
 
-    t.test("bbox-too-large: line-like geometry with oversized bbox emits info", (t) => {
-      const parent = {
-        type: "LineString",
-        coordinates: [
-          [0, 0],
-          [1, 0],
-        ],
-      };
-      // Horizontal line, bbox is 10 wide but data is 1 wide
-      const g = lintBbox([0, 0, 10, 0], withScope(ctx(), { parent }), [])!;
-      t.equal(find(g, "bbox-too-large")!.severity, Severity.Info);
-      t.end();
-    });
+    t.test(
+      "bbox-too-large: AM-crossing published bbox matching data passes",
+      (t) => {
+        const parent = {
+          type: "MultiPoint",
+          coordinates: [
+            [175, 0],
+            [-175, 0],
+          ],
+        };
+        // Published [170, -5, -170, 5] spans 20 degrees, data spans ~10 degrees (shifted)
+        const g = lintBbox(
+          [170, -5, -170, 5],
+          withScope(ctx(), { parent }),
+          [],
+        )!;
+        t.equal(find(g, "bbox-too-large")!.severity, Severity.Ok);
+        t.end();
+      },
+    );
+
+    t.test(
+      "bbox-too-large: AM-crossing published bbox >2x area emits info",
+      (t) => {
+        const parent = {
+          type: "MultiPoint",
+          coordinates: [
+            [179, 0],
+            [-179, 0],
+          ],
+        };
+        // Published [100, -50, -100, 50] spans 160 degrees, data spans 2 degrees
+        const g = lintBbox(
+          [100, -50, -100, 50],
+          withScope(ctx(), { parent }),
+          [],
+        )!;
+        const r = find(g, "bbox-too-large") as LintResult;
+        t.equal(r.severity, Severity.Info);
+        // Data is AM-crossing bbox since published is AM-crossing
+        t.deepEqual(
+          r.data,
+          [179, 0, -179, 0],
+          "data contains AM-crossing actual bbox",
+        );
+        t.end();
+      },
+    );
+
+    t.test(
+      "bbox-too-large: normal bbox passes when AM would be smaller",
+      (t) => {
+        const parent = {
+          type: "MultiPoint",
+          coordinates: [
+            [175, 0],
+            [-175, 5],
+          ],
+        };
+        // Data: normalWidth=350, shiftedWidth=10. AM bbox would be much smaller.
+        // But published [-175, 0, 175, 5] is non-AM (width 350) and does contain all data.
+        // bboxTooLarge should compare against normalWidth (350), not min (10).
+        const g = lintBbox(
+          [-175, 0, 175, 5],
+          withScope(ctx(), { parent }),
+          [],
+        )!;
+        t.equal(find(g, "bbox-too-large")!.severity, Severity.Ok);
+        t.end();
+      },
+    );
+
+    t.test(
+      "bbox-too-large: line-like geometry with oversized bbox emits info",
+      (t) => {
+        const parent = {
+          type: "LineString",
+          coordinates: [
+            [0, 0],
+            [1, 0],
+          ],
+        };
+        // Horizontal line, bbox is 10 wide but data is 1 wide
+        const g = lintBbox([0, 0, 10, 0], withScope(ctx(), { parent }), [])!;
+        t.equal(find(g, "bbox-too-large")!.severity, Severity.Info);
+        t.end();
+      },
+    );
 
     t.test("schema failure skips geometry lints", (t) => {
       const g = lintBbox([0, "a", 1, 1], ctx(), [])!;
@@ -425,6 +553,78 @@ test("lintBbox", (t) => {
       t.equal(find(g, "bbox-polar-cap")!.severity, Severity.Skip);
       t.end();
     });
+
+    t.test(
+      "bbox-suboptimal-span: non-AM bbox for AM-crossing data emits info",
+      (t) => {
+        const parent = {
+          type: "MultiPoint",
+          coordinates: [
+            [175, 0],
+            [-175, 0],
+          ],
+        };
+        // Published [-175, -5, 175, 5] is non-AM (width 350) but data should be AM (width 10)
+        const g = lintBbox(
+          [-175, -5, 175, 5],
+          withScope(ctx(), { parent }),
+          [],
+        )!;
+        const r = find(g, "bbox-suboptimal-span") as LintResult;
+        t.equal(r.severity, Severity.Info);
+        t.deepEqual(r.data, [175, 0, -175, 0], "suggests AM-crossing bbox");
+        t.end();
+      },
+    );
+
+    t.test(
+      "bbox-suboptimal-span: correct AM bbox for AM-crossing data passes",
+      (t) => {
+        const parent = {
+          type: "MultiPoint",
+          coordinates: [
+            [175, 0],
+            [-175, 0],
+          ],
+        };
+        const g = lintBbox(
+          [170, -5, -170, 5],
+          withScope(ctx(), { parent }),
+          [],
+        )!;
+        t.equal(find(g, "bbox-suboptimal-span")!.severity, Severity.Ok);
+        t.end();
+      },
+    );
+
+    t.test(
+      "bbox-suboptimal-span: correct non-AM bbox for non-AM data passes",
+      (t) => {
+        const parent = {
+          type: "MultiPoint",
+          coordinates: [
+            [0, 0],
+            [10, 5],
+          ],
+        };
+        const g = lintBbox([0, 0, 10, 5], withScope(ctx(), { parent }), [])!;
+        t.equal(find(g, "bbox-suboptimal-span")!.severity, Severity.Ok);
+        t.end();
+      },
+    );
+
+    t.test(
+      "bbox-suboptimal-span: not run when bbox-too-small is Error",
+      (t) => {
+        const parent = {
+          type: "Point",
+          coordinates: [5, 5],
+        };
+        const g = lintBbox([0, 0, 1, 1], withScope(ctx(), { parent }), [])!;
+        t.notOk(find(g, "bbox-suboptimal-span"), "span lint not present");
+        t.end();
+      },
+    );
 
     t.end();
   });

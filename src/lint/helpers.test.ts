@@ -5,7 +5,7 @@ import { ctx } from "./test/helpers.ts";
 import { Severity } from "./types.ts";
 
 /** Extract severity from a test return (handles both bare Severity and tuple) */
-function sev(result: Severity | [Severity, string?]): Severity {
+function sev(result: Severity | [Severity, string?, unknown?]): Severity {
   return Array.isArray(result) ? result[0] : result;
 }
 

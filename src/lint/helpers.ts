@@ -40,7 +40,8 @@ export function error(msg: string): [Severity, string] {
 
 export const foreignMember: Lint = {
   name: "foreign-member",
-  description: "Foreign members MAY be present in GeoJSON documents, but support can vary (RFC7946 6.1)",
+  description:
+    "Foreign members MAY be present in GeoJSON documents, but support can vary (RFC7946 6.1)",
   tag: "Schema",
   test: () => info("This member is a foreign member"),
 };
