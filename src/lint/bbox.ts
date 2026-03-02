@@ -502,7 +502,7 @@ const bboxSuboptimalSpan: Lint<number[]> = {
     if (pubIsAM !== shouldBeAM) {
       const better = shouldBeAM ? amCrossing : normal;
       return [
-        Severity.Info,
+        Severity.Warn,
         `Bbox uses a wider longitude span than necessary; narrower bbox is the ${shouldBeAM ? "AM crossing" : "standard"} one: [${better}]`,
         better,
       ];

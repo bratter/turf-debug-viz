@@ -271,6 +271,140 @@ nav#mode-menu[data-mode="diff"] > ul:first-child > li:first-child::after {
 }
 
 /* ========================================
+   GeoJSON Tree View
+   ======================================== */
+
+.gjv-root {
+  --gjv-indent: 1.5em;
+  font-family: monospace;
+  font-size: 0.8125rem;
+  padding: var(--space-sm);
+  line-height: 1.6;
+  white-space: nowrap;
+}
+
+.gjv-line {
+  display: flex;
+  align-items: baseline;
+  gap: 0.3em;
+}
+
+.gjv-body {
+  padding-left: var(--gjv-indent);
+}
+
+/* Collapse mechanics */
+.gjv-node.closed > .gjv-body,
+.gjv-node.closed > .gjv-line:last-child {
+  display: none;
+}
+
+.gjv-closed-summary {
+  display: none;
+}
+
+.gjv-node.closed > .gjv-line > .gjv-closed-summary {
+  display: inline;
+}
+
+/* Clickable header */
+.gjv-node > .gjv-line:first-child {
+  cursor: pointer;
+}
+
+.gjv-toggle {
+  margin-right: 0.1em;
+  cursor: pointer;
+  color: var(--muted-color);
+  user-select: none;
+  transition: transform 0.12s;
+}
+
+.gjv-node:not(.closed) > .gjv-line > .gjv-toggle {
+  transform: rotate(90deg);
+}
+
+/* Syntax coloring */
+.gjv-key {
+  color: var(--color);
+  font-weight: 600;
+}
+
+.gjv-str  { color: var(--palette-green); }
+.gjv-num  { color: var(--palette-orange); }
+.gjv-bool { color: var(--palette-purple); }
+.gjv-null { color: var(--muted-color); font-style: italic; }
+.gjv-unknown { color: var(--muted-color); }
+
+/* Lint icons — pushed to right edge */
+.gjv-icons {
+  display: inline-flex;
+  gap: 0.15em;
+  margin-left: auto;
+}
+
+.gjv-icon {
+  cursor: help;
+  width: 1.2em;
+  display: inline-flex;
+  justify-content: center;
+}
+
+.gjv-icon-error { color: var(--palette-red); }
+.gjv-icon-warn  { color: var(--palette-yellow); }
+.gjv-icon-info  { color: var(--palette-blue); }
+
+/* Row background tinted by highest severity (info < warn < error, later wins) */
+.gjv-line:has(.gjv-icon-info) {
+  background-color: color-mix(in srgb, var(--palette-blue) 15%, transparent);
+}
+
+.gjv-line:has(.gjv-icon-warn) {
+  background-color: color-mix(in srgb, var(--palette-yellow) 12%, transparent);
+}
+
+.gjv-line:has(.gjv-icon-error) {
+  background-color: color-mix(in srgb, var(--palette-red) 12%, transparent);
+}
+
+/* Right padding so icons don't touch the highlight edge */
+.gjv-line:has(.gjv-icons) {
+  padding-right: var(--space-sm);
+}
+
+/* Extend background to left edge of the body's indent (nested lines) */
+.gjv-body .gjv-line:has(.gjv-icons),
+.gjv-body .gjv-node > .gjv-line:first-child:hover {
+  margin-left: calc(-1 * var(--gjv-indent));
+  padding-left: var(--gjv-indent);
+}
+
+/* Extend background to left edge of the root's padding (top-level node) */
+.gjv-root > .gjv-node > .gjv-line:has(.gjv-icons),
+.gjv-root > .gjv-node > .gjv-line:first-child:hover {
+  margin-left: calc(-1 * var(--space-sm));
+  padding-left: var(--space-sm);
+}
+
+/* Hover: non-lint headers get a subtle primary tint */
+.gjv-node > .gjv-line:first-child:not(:has(.gjv-icons)):hover {
+  background-color: color-mix(in srgb, var(--primary) 7%, transparent);
+}
+
+/* Hover: lint-highlighted lines increase opacity (don't override color) */
+.gjv-line:has(.gjv-icon-info):hover {
+  background-color: color-mix(in srgb, var(--palette-blue) 22%, transparent);
+}
+
+.gjv-line:has(.gjv-icon-warn):hover {
+  background-color: color-mix(in srgb, var(--palette-yellow) 19%, transparent);
+}
+
+.gjv-line:has(.gjv-icon-error):hover {
+  background-color: color-mix(in srgb, var(--palette-red) 19%, transparent);
+}
+
+/* ========================================
    Map Popup Styling
    ======================================== */
 

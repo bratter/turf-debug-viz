@@ -15,6 +15,7 @@ import { Mode, changeMode } from "./mode-menu.ts";
 import { viewState } from "./view.ts";
 import { diffState } from "./diff.ts";
 import { initList } from "./list.ts";
+import { initGeoJsonView } from "./geojson-view.ts";
 
 declare global {
   interface Window {
@@ -79,6 +80,9 @@ function toggleSidebar() {
 
 // Initialize the sidebar list renderer (subscribes to state and mode changes)
 initList();
+
+// Initialize the GeoJSON tree view renderer (subscribes to activate events)
+initGeoJsonView();
 
 // Cascade ViewRow deletions: remove any diffs referencing the deleted row
 viewState.addEventListener("change", (e) => {
