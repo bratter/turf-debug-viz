@@ -11,29 +11,41 @@ import { GEOMETRY_TYPES } from "../lint/const.ts";
 import type { LintResult, Path } from "../lint/types.ts";
 import { Severity } from "../lint/types.ts";
 import { viewState } from "./view.ts";
+import { Mode } from "./mode-menu.ts";
+import type { ViewRow } from "../../types.js";
 
 // ========================================
 // Public API
 // ========================================
 
 export function initGeoJsonView(): void {
-  viewState.addEventListener("change", (e) => {
-    if (e.detail.type !== "activate") return;
-    const container = document.getElementById("geojson-view") as HTMLElement;
-    if (e.detail.row === null) {
-      container.innerHTML = "";
-      return;
-    }
-    const geojson = e.detail.row.geojson;
+  const container = document.getElementById("geojson-view") as HTMLElement;
+
+  function renderRow(row: ViewRow | null): void {
+    container.innerHTML = "";
+    if (row === null) return;
+    const geojson = row.geojson;
     const lintGroup = lintFlat(geojson);
     const lints = buildLintMap(lintGroup.results as LintResult[]);
-    container.innerHTML = "";
     const root = document.createElement("div");
     root.className = "gjv-root";
     container.appendChild(root);
     renderGeoJSON(root, geojson, [], lints);
     // Root-level object has no enclosing collection — remove its closing comma.
     removeLastComma(root);
+  }
+
+  viewState.addEventListener("change", (e) => {
+    if (e.detail.type !== "activate") return;
+    renderRow(e.detail.row);
+  });
+
+  window.addEventListener("modechange", (e) => {
+    if (e.detail === Mode.DIFF) {
+      container.innerHTML = "";
+    } else {
+      renderRow(viewState.getActiveRow());
+    }
   });
 }
 

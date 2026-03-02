@@ -42,6 +42,7 @@ function getFeatureColor(index: number): string {
  * Build a type description line for a GeoJSON object.
  */
 function getGeoJSONTypeLine(gj: GeoJSON): string {
+  if (typeof (gj as unknown) !== "object" || gj === null) return "(invalid)";
   switch (gj.type) {
     case "FeatureCollection":
       return `${gj.type} (${gj.features.length})`;
@@ -49,10 +50,8 @@ function getGeoJSONTypeLine(gj: GeoJSON): string {
       return `${gj.type} (${gj.geometries.length})`;
     case "Feature": {
       const id = gj.id ?? gj.properties?.id ?? null;
-      return (
-        (id !== null ? `<strong>${id}:</strong> ` : "") +
-        `Feature (${gj.geometry.type})`
-      );
+      const geomType = gj.geometry != null ? gj.geometry.type : "null";
+      return (id !== null ? `<strong>${id}:</strong> ` : "") + `Feature (${geomType})`;
     }
     default:
       return `Geometry (${gj.type})`;

@@ -4,7 +4,7 @@
 
 import type { GeoJSON, Feature, FeatureCollection } from "geojson";
 import type { ViewRow } from "../../types.js";
-import { isDark } from "../../node_modules/theme-switcher/dist/theme-switcher.js";
+import { isDark } from "../../vendor/theme-switcher.js";
 import { config } from "../config.js";
 import { createMetadataHTML, getFeatureColor } from "./helpers.ts";
 
@@ -47,6 +47,32 @@ function getMapStyleUrl(): string {
     return "mapbox://styles/mapbox/dark-v11";
   } else {
     return "mapbox://styles/mapbox/light-v11";
+  }
+}
+
+// Checks that a value is GeoJSON with enough structure for Mapbox to render
+// without throwing async errors. Specifically validates that:
+//   - it's a non-null object with a known GeoJSON type
+//   - geometries have array coordinates (not strings, undefined, etc.)
+function isRenderableGeoJSON(gj: unknown): gj is GeoJSON {
+  if (typeof gj !== "object" || gj === null) return false;
+  const obj = gj as Record<string, unknown>;
+  switch (obj.type) {
+    case "Feature":
+      return obj.geometry === null || isRenderableGeoJSON(obj.geometry);
+    case "FeatureCollection":
+      return Array.isArray(obj.features);
+    case "GeometryCollection":
+      return Array.isArray(obj.geometries);
+    case "Point":
+    case "MultiPoint":
+    case "LineString":
+    case "MultiLineString":
+    case "Polygon":
+    case "MultiPolygon":
+      return Array.isArray(obj.coordinates);
+    default:
+      return false;
   }
 }
 
@@ -160,6 +186,10 @@ class MapView {
   }
 
   addToMap(row: ViewRow) {
+    if (!isRenderableGeoJSON(row.geojson)) {
+      console.warn(`Skipping row ${row.index}: not valid GeoJSON`, row.geojson);
+      return;
+    }
     try {
       const sourceId = `source-${row.index}`;
       const color = getFeatureColor(row.index);
@@ -255,16 +285,16 @@ class MapView {
   // Update all circle layer filters based on show vertices checkbox
   updateCircleFilters(): void {
     for (const row of this.getRenderData()) {
-      try {
-        this.map.setFilter(`layer-${row.index}-circle`, this.getCircleFilter());
-      } catch (err) {
-        // Layer might not exist yet, ignore error
+      const layerId = `layer-${row.index}-circle`;
+      if (this.map.getLayer(layerId)) {
+        this.map.setFilter(layerId, this.getCircleFilter());
       }
     }
   }
 
   // Remove GeoJSON from map
   removeFromMap(index: number): void {
+    if (!this.map.getSource(`source-${index}`)) return;
     try {
       // Remove layers first, then source (ordering is required)
       this.map.removeLayer(`layer-${index}-fill`);
@@ -325,14 +355,20 @@ class MapView {
 
     const bounds = [Infinity, Infinity, -Infinity, -Infinity] as any;
     for (const row of rows) {
-      const cur = turf.bbox(row.geojson);
-      bounds[0] = cur[0] < bounds[0] ? cur[0] : bounds[0];
-      bounds[1] = cur[1] < bounds[1] ? cur[1] : bounds[1];
-      bounds[2] = cur[2] > bounds[2] ? cur[2] : bounds[2];
-      bounds[3] = cur[3] > bounds[3] ? cur[3] : bounds[3];
+      try {
+        const cur = turf.bbox(row.geojson);
+        bounds[0] = cur[0] < bounds[0] ? cur[0] : bounds[0];
+        bounds[1] = cur[1] < bounds[1] ? cur[1] : bounds[1];
+        bounds[2] = cur[2] > bounds[2] ? cur[2] : bounds[2];
+        bounds[3] = cur[3] > bounds[3] ? cur[3] : bounds[3];
+      } catch (err) {
+        console.warn(`Skipping row ${row.index} for fit: invalid GeoJSON`, err);
+      }
     }
 
-    this.map.fitBounds(bounds, MAP_FIT_OPTIONS);
+    if (bounds[0] !== Infinity) {
+      this.map.fitBounds(bounds, MAP_FIT_OPTIONS);
+    }
   }
 
   scheduleFit(ignoreHidden?: boolean): void;
@@ -373,9 +409,12 @@ class MapView {
     const row = this.getRenderData().find((r) => r.index === index);
     if (!row) return;
 
-    const bounds = turf.bbox(row.geojson) as mapboxgl.LngLatBoundsLike;
-
-    this.map.fitBounds(bounds, MAP_FIT_OPTIONS);
+    try {
+      const bounds = turf.bbox(row.geojson) as mapboxgl.LngLatBoundsLike;
+      this.map.fitBounds(bounds, MAP_FIT_OPTIONS);
+    } catch (err) {
+      console.warn(`Failed to zoom to row ${index}: invalid GeoJSON`, err);
+    }
   }
 
   resize(): void {
@@ -384,6 +423,7 @@ class MapView {
 
   // Set visibility of a feature's layers on the map
   setLayerVisibility(index: number, visible: boolean): void {
+    if (!this.map.getSource(`source-${index}`)) return;
     try {
       const visibility = visible ? "visible" : "none";
 
