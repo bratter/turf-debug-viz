@@ -36,8 +36,8 @@ export function initGeoJsonView(): void {
   }
 
   viewState.addEventListener("change", (e) => {
-    if (e.detail.type !== "activate") return;
-    renderRow(e.detail.row);
+    if (e.detail.type === "activate") renderRow(e.detail.row);
+    else if (e.detail.type === "clear") renderRow(null);
   });
 
   window.addEventListener("modechange", (e) => {
