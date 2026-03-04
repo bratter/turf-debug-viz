@@ -162,7 +162,10 @@ export type DiffOverlayResult = { overlay?: FeatureCollection; error?: string };
  *
  * Both fields are absent if no overlay applies (incompatible types, both lines, etc).
  */
-export function computeDiffOverlay(from: GeoJSON, to: GeoJSON): DiffOverlayResult {
+export function computeDiffOverlay(
+  from: GeoJSON,
+  to: GeoJSON,
+): DiffOverlayResult {
   const fromType = getPrimaryGeomType(from);
   const toType = getPrimaryGeomType(to);
 
@@ -175,7 +178,8 @@ export function computeDiffOverlay(from: GeoJSON, to: GeoJSON): DiffOverlayResul
         return { overlay: computePolygonOverlay(from, to) };
       case "point":
         // Toggle SHOW_POINT_CONNECTORS to disable point displacement indicators
-        if (SHOW_POINT_CONNECTORS) return { overlay: computePointOverlay(from, to) };
+        if (SHOW_POINT_CONNECTORS)
+          return { overlay: computePointOverlay(from, to) };
         return {};
       case "line":
         // Line overlay not implemented; toggle SHOW_LINE_OVERLAY to enable

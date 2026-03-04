@@ -4,7 +4,15 @@ import {
   GEOMETRY_COLLECTION,
   GEOMETRY_TYPES,
 } from "../lint/const.ts";
-import type { DiffGroup, DiffLeaf, DiffNode, DiffResult, DiffStatus, Path } from "./types.ts";
+import { normalizeGeoJSON } from "./normalize.ts";
+import type {
+  DiffGroup,
+  DiffLeaf,
+  DiffNode,
+  DiffResult,
+  DiffStatus,
+  Path,
+} from "./types.ts";
 
 export interface DiffOptions {
   /** Apply GeoJSON normalization before comparing (see Chunk C). Default: false. */
@@ -13,8 +21,22 @@ export interface DiffOptions {
   precision?: number;
 }
 
-export function diffGeoJSON(from: unknown, to: unknown, opts?: DiffOptions): DiffResult {
-  // normalize is a no-op until Chunk C
+export function diffGeoJSON(
+  from: unknown,
+  to: unknown,
+  opts?: DiffOptions,
+): DiffResult {
+  let a = from;
+  let b = to;
+  if (opts?.normalize) {
+    const p = opts.precision ?? 6;
+    a = normalizeGeoJSON(from, { precision: p });
+    b = normalizeGeoJSON(to, { precision: p });
+  }
+  return _diff(a, b);
+}
+
+function _diff(from: unknown, to: unknown): DiffResult {
   const node = diffValues(from, to, []);
   const root: DiffGroup =
     node.kind === "group"
@@ -52,7 +74,12 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
   return v !== null && typeof v === "object" && !Array.isArray(v);
 }
 
-function leaf(path: Path, status: DiffStatus, from: unknown, to: unknown): DiffLeaf {
+function leaf(
+  path: Path,
+  status: DiffStatus,
+  from: unknown,
+  to: unknown,
+): DiffLeaf {
   return { kind: "leaf", path, status, from, to };
 }
 

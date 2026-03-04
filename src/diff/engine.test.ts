@@ -251,10 +251,7 @@ test("key ordering", (t) => {
   });
 
   t.test("unknown object keys sorted alphabetically", (t) => {
-    const r = diffGeoJSON(
-      { z: 1, a: 2, m: 3 },
-      { z: 1, a: 2, m: 3 },
-    );
+    const r = diffGeoJSON({ z: 1, a: 2, m: 3 }, { z: 1, a: 2, m: 3 });
     const paths = r.root.children.map((c) => c.path[c.path.length - 1]);
     t.deepEqual(paths, ["a", "m", "z"]);
     t.end();
@@ -271,16 +268,22 @@ test("key ordering", (t) => {
     t.end();
   });
 
-  t.test("key present only in from appears in ordered output (removed)", (t) => {
-    const r = diffGeoJSON(
-      { type: "Feature", properties: {}, geometry: null, id: 1 },
-      { type: "Feature", properties: {}, geometry: null },
-    );
-    const paths = r.root.children.map((c) => c.path[c.path.length - 1]);
-    // id comes after type in Feature canonical order
-    t.ok(paths.indexOf("id") < paths.indexOf("properties"), "id before properties");
-    t.end();
-  });
+  t.test(
+    "key present only in from appears in ordered output (removed)",
+    (t) => {
+      const r = diffGeoJSON(
+        { type: "Feature", properties: {}, geometry: null, id: 1 },
+        { type: "Feature", properties: {}, geometry: null },
+      );
+      const paths = r.root.children.map((c) => c.path[c.path.length - 1]);
+      // id comes after type in Feature canonical order
+      t.ok(
+        paths.indexOf("id") < paths.indexOf("properties"),
+        "id before properties",
+      );
+      t.end();
+    },
+  );
 
   t.end();
 });

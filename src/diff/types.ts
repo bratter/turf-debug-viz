@@ -8,7 +8,7 @@ export interface DiffLeaf {
   path: Path;
   status: DiffStatus;
   from: unknown; // undefined when status = "added"
-  to: unknown;   // undefined when status = "removed"
+  to: unknown; // undefined when status = "removed"
 }
 
 /** A group node: an object or array with children, status = worst of children */

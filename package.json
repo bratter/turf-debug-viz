@@ -16,7 +16,8 @@
     "watch:server": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
     "format": "prettier --write src/**/*",
-    "test:lint": "tsx node_modules/tape/bin/tape 'src/lint/**/*.test.ts'"
+    "test:lint": "tsx node_modules/tape/bin/tape 'src/lint/**/*.test.ts'",
+    "test:diff": "tsx node_modules/tape/bin/tape 'src/diff/**/*.test.ts'"
   },
   "devDependencies": {
     "@types/d3-selection": "^3.0.11",
