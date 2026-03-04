@@ -55,9 +55,7 @@ function getFeatureColor(index: number): string {
 /**
  * Get a semantic color for the current theme.
  */
-function getSemanticColor(
-  kind: keyof typeof SEMANTIC_COLORS.dark,
-): string {
+function getSemanticColor(kind: keyof typeof SEMANTIC_COLORS.dark): string {
   return isDark() ? SEMANTIC_COLORS.dark[kind] : SEMANTIC_COLORS.light[kind];
 }
 

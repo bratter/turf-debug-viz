@@ -604,7 +604,6 @@ function makeCollapsible(
   return { node, header, body };
 }
 
-
 function addClosingLine(parent: HTMLElement, bracket: string): void {
   const line = document.createElement("div");
   line.className = "gjv-line";

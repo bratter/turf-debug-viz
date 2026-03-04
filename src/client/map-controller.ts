@@ -122,7 +122,10 @@ class MapController {
       geojsonView.textContent = "";
       return;
     }
-    const { overlay, error } = computeDiffOverlay(diff.from.geojson, diff.to.geojson);
+    const { overlay, error } = computeDiffOverlay(
+      diff.from.geojson,
+      diff.to.geojson,
+    );
     this.map.setDiffOverlay(overlay ?? null);
     geojsonView.textContent = "";
     if (error) {

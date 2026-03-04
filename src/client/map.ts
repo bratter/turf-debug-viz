@@ -6,7 +6,11 @@ import type { GeoJSON, Feature, FeatureCollection } from "geojson";
 import type { ViewRow } from "../../types.js";
 import { isDark } from "../../vendor/theme-switcher.js";
 import { config } from "../config.js";
-import { createMetadataHTML, getFeatureColor, getSemanticColor } from "./helpers.ts";
+import {
+  createMetadataHTML,
+  getFeatureColor,
+  getSemanticColor,
+} from "./helpers.ts";
 
 // MapBox GL is loaded via CDN script tag
 declare const mapboxgl: typeof import("mapbox-gl");
