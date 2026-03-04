@@ -135,7 +135,13 @@ function renderFeature(
     [...path, "properties"],
     lints,
   );
-  renderGeoJSON(body, node["geometry"], [...path, "geometry"], lints, "geometry");
+  renderGeoJSON(
+    body,
+    node["geometry"],
+    [...path, "geometry"],
+    lints,
+    "geometry",
+  );
 
   for (const key of Object.keys(node)) {
     if (!FEATURE_KEYS.has(key)) {
@@ -171,7 +177,13 @@ function renderFeatureCollection(
       "features",
     );
     for (let i = 0; i < features.length; i++) {
-      renderGeoJSON(arrBody, features[i], [...featuresPath, i], lints, String(i));
+      renderGeoJSON(
+        arrBody,
+        features[i],
+        [...featuresPath, i],
+        lints,
+        String(i),
+      );
     }
     removeLastComma(arrBody);
     addClosingLine(arrBody.parentElement!, "]");
@@ -236,7 +248,12 @@ function renderGeometry(
     const coordPath = [...path, "coordinates"];
     if (depth === 0) {
       // Point: render coordinates inline as `coordinates: [lng, lat]`
-      renderCoordsLine(body, "coordinates", node["coordinates"], coordPath, lints);
+      const line = makeLine(body);
+      const keySpan = document.createElement("span");
+      keySpan.className = "gjv-key";
+      keySpan.textContent = "coordinates: ";
+      line.appendChild(keySpan);
+      renderPosition(line, node["coordinates"], coordPath, lints);
     } else {
       const { body: coordBody } = makeCollapsible(
         body,
@@ -245,7 +262,7 @@ function renderGeometry(
         "[",
         "coordinates",
       );
-      renderCoords(coordBody, node["coordinates"], coordPath, depth);
+      renderCoords(coordBody, node["coordinates"], coordPath, lints, depth);
       removeLastComma(coordBody);
       addClosingLine(coordBody.parentElement!, "]");
     }
@@ -392,37 +409,10 @@ function renderKeyValue(
 // Coordinate Renderers
 // ========================================
 
-/** Renders `key: [...]` on a single line (used for Point coordinates). */
-function renderCoordsLine(
-  parent: HTMLElement,
-  key: string,
-  coords: unknown,
-  path: Path,
-  lints: Map<string, LintResult[]>,
-): void {
-  const line = makeLine(parent);
-  const keySpan = document.createElement("span");
-  keySpan.className = "gjv-key";
-  keySpan.textContent = `${key}: `;
-  line.appendChild(keySpan);
-  if (Array.isArray(coords)) {
-    line.append("[");
-    for (let i = 0; i < coords.length; i++) {
-      if (i > 0) line.append(", ");
-      appendPrimitive(line, coords[i]);
-    }
-    line.append("]");
-  } else {
-    appendPrimitive(line, coords);
-  }
-  appendComma(line);
-  renderLintIcons(line, path, lints);
-}
-
 /**
  * Renders coordinate arrays into parent.
- * depth 1 → array of positions (each rendered on one line)
- * depth 2+ → array of collapsible sub-arrays
+ * depth 1  → array of positions (each rendered as one line with lint icons)
+ * depth 2+ → array of collapsible sub-arrays (each header gets lint icons)
  *
  * Callers are responsible for calling removeLastComma(parent) after this
  * function returns, before sealing the enclosing block with addClosingLine.
@@ -431,6 +421,7 @@ function renderCoords(
   parent: HTMLElement,
   coords: unknown,
   path: Path,
+  lints: Map<string, LintResult[]>,
   depth: number,
 ): void {
   if (!Array.isArray(coords)) {
@@ -440,30 +431,39 @@ function renderCoords(
     return;
   }
 
-  if (depth === 1) {
+  if (depth <= 1) {
+    // Base case: each element is a position rendered on its own line
     for (let i = 0; i < coords.length; i++) {
-      renderPosition(parent, coords[i], [...path, i]);
+      const line = makeLine(parent);
+      renderPosition(line, coords[i], [...path, i], lints);
     }
     return;
   }
 
+  // depth >= 2: each element is a sub-array (ring, line, polygon, …)
   for (let i = 0; i < coords.length; i++) {
-    const { body } = makeCollapsibleNoLints(parent, "[", String(i));
-    renderCoords(body, coords[i], [...path, i], depth - 1);
+    const subPath = [...path, i];
+    const { body } = makeCollapsible(parent, subPath, lints, "[", String(i));
+    renderCoords(body, coords[i], subPath, lints, depth - 1);
     removeLastComma(body);
     addClosingLine(body.parentElement!, "]");
   }
 }
 
+/**
+ * Fills a pre-created line element with a position's `[x, y]` content,
+ * a trailing comma, and any lint icons for the given path.
+ */
 function renderPosition(
-  parent: HTMLElement,
+  line: HTMLElement,
   pos: unknown,
-  _path: Path,
+  path: Path,
+  lints: Map<string, LintResult[]>,
 ): void {
-  const line = makeLine(parent);
   if (!Array.isArray(pos)) {
     appendPrimitive(line, pos);
     appendComma(line);
+    renderLintIcons(line, path, lints);
     return;
   }
   line.append("[");
@@ -473,6 +473,7 @@ function renderPosition(
   }
   line.append("]");
   appendComma(line);
+  renderLintIcons(line, path, lints);
 }
 
 // ========================================
@@ -544,8 +545,8 @@ function removeLastComma(parent: HTMLElement): void {
   const last = parent.lastElementChild;
   if (!last) return;
   const target = last.classList.contains("gjv-node")
-    ? last.lastElementChild   // closing .gjv-line of the collapsible
-    : last;                   // plain .gjv-line
+    ? last.lastElementChild
+    : last;
   target?.querySelector(".gjv-comma")?.remove();
 }
 
@@ -603,55 +604,6 @@ function makeCollapsible(
   return { node, header, body };
 }
 
-/** Like makeCollapsible but without lint icon lookup (used for coordinate arrays). */
-function makeCollapsibleNoLints(
-  parent: HTMLElement,
-  open: string,
-  keyLabel?: string,
-): { node: HTMLElement; header: HTMLElement; body: HTMLElement } {
-  const node = document.createElement("div");
-  node.className = "gjv-node";
-  parent.appendChild(node);
-
-  const header = document.createElement("div");
-  header.className = "gjv-line";
-  node.appendChild(header);
-
-  const toggle = document.createElement("span");
-  toggle.className = "gjv-toggle";
-  toggle.textContent = "▶";
-  header.appendChild(toggle);
-
-  if (keyLabel !== undefined) {
-    const keySpan = document.createElement("span");
-    keySpan.className = "gjv-key";
-    keySpan.textContent = `${keyLabel}: `;
-    header.appendChild(keySpan);
-  }
-
-  const close = open === "{" ? "}" : "]";
-  header.append(open);
-
-  const closedEllipsis = document.createElement("span");
-  closedEllipsis.className = "gjv-closed-summary";
-  closedEllipsis.textContent = "…";
-  header.appendChild(closedEllipsis);
-
-  const closedBracket = document.createElement("span");
-  closedBracket.className = "gjv-closed-summary";
-  closedBracket.textContent = close;
-  header.appendChild(closedBracket);
-
-  header.addEventListener("click", () => {
-    node.classList.toggle("closed");
-  });
-
-  const body = document.createElement("div");
-  body.className = "gjv-body";
-  node.appendChild(body);
-
-  return { node, header, body };
-}
 
 function addClosingLine(parent: HTMLElement, bracket: string): void {
   const line = document.createElement("div");

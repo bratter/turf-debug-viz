@@ -330,11 +330,22 @@ nav#mode-menu[data-mode="diff"] > ul:first-child > li:first-child::after {
   font-weight: 600;
 }
 
-.gjv-str  { color: var(--palette-green); }
-.gjv-num  { color: var(--palette-orange); }
-.gjv-bool { color: var(--palette-purple); }
-.gjv-null { color: var(--muted-color); font-style: italic; }
-.gjv-unknown { color: var(--muted-color); }
+.gjv-str {
+  color: var(--palette-green);
+}
+.gjv-num {
+  color: var(--palette-orange);
+}
+.gjv-bool {
+  color: var(--palette-purple);
+}
+.gjv-null {
+  color: var(--muted-color);
+  font-style: italic;
+}
+.gjv-unknown {
+  color: var(--muted-color);
+}
 
 /* Lint icons — pushed to right edge */
 .gjv-icons {
@@ -350,9 +361,15 @@ nav#mode-menu[data-mode="diff"] > ul:first-child > li:first-child::after {
   justify-content: center;
 }
 
-.gjv-icon-error { color: var(--palette-red); }
-.gjv-icon-warn  { color: var(--palette-yellow); }
-.gjv-icon-info  { color: var(--palette-blue); }
+.gjv-icon-error {
+  color: var(--palette-red);
+}
+.gjv-icon-warn {
+  color: var(--palette-yellow);
+}
+.gjv-icon-info {
+  color: var(--palette-blue);
+}
 
 /* Row background tinted by highest severity (info < warn < error, later wins) */
 .gjv-line:has(.gjv-icon-info) {
