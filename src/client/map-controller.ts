@@ -13,6 +13,8 @@ import { diffState } from "./diff.ts";
 import { Mode, getCurrentMode, getAutoFit } from "./mode-menu.ts";
 import { computeDiffOverlay } from "../diff/overlay.ts";
 
+const geojsonView = document.getElementById("geojson-view") as HTMLElement;
+
 class MapController {
   private map: MapView;
 
@@ -86,11 +88,7 @@ class MapController {
     if (getCurrentMode() !== Mode.DIFF) return;
 
     this.applyDiffModeVisibility(diff);
-
-    const overlay = diff
-      ? computeDiffOverlay(diff.from.geojson, diff.to.geojson)
-      : null;
-    this.map.setDiffOverlay(overlay);
+    this.applyDiffOverlay(diff);
 
     if (getAutoFit() && diff) {
       // In diff mode, fit to indices regardless of isHidden
@@ -109,12 +107,30 @@ class MapController {
     } else {
       const diff = diffState.getActiveDiff();
       this.applyDiffModeVisibility(diff);
-      const overlay = diff
-        ? computeDiffOverlay(diff.from.geojson, diff.to.geojson)
-        : null;
-      this.map.setDiffOverlay(overlay);
+      this.applyDiffOverlay(diff);
     }
     this.scheduleAutofit();
+  }
+
+  // ========================================
+  // Diff Overlay Helper
+  // ========================================
+
+  private applyDiffOverlay(diff: DiffEntry | null): void {
+    if (!diff) {
+      this.map.setDiffOverlay(null);
+      geojsonView.textContent = "";
+      return;
+    }
+    const { overlay, error } = computeDiffOverlay(diff.from.geojson, diff.to.geojson);
+    this.map.setDiffOverlay(overlay ?? null);
+    geojsonView.textContent = "";
+    if (error) {
+      const p = document.createElement("p");
+      p.className = "overlay-error";
+      p.textContent = error;
+      geojsonView.appendChild(p);
+    }
   }
 
   // ========================================

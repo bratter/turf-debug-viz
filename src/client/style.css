@@ -64,6 +64,12 @@ section#geojson-view {
   margin-bottom: 0;
 }
 
+section#geojson-view p.overlay-error {
+  margin: 1rem;
+  color: var(--del-color, #f7768e);
+  font-size: 0.85rem;
+}
+
 section#map-view.collapsed,
 section#geojson-view.collapsed {
   display: none;

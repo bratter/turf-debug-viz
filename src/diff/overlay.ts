@@ -148,35 +148,43 @@ function computePointOverlay(
   if (features.length > 0) return turf.featureCollection(features);
 }
 
+export type DiffOverlayResult = { overlay?: FeatureCollection; error?: string };
+
 /**
  * Compute diff overlay FeatureCollection from two GeoJSON objects.
  *
- * Returns a FeatureCollection with features tagged with `diffType`:
- * - "removed": polygon area only in `from` (red)
- * - "added": polygon area only in `to` (green)
- * - "connector": line connecting corresponding points
+ * Returns a DiffOverlayResult with:
+ * - `overlay`: FeatureCollection with features tagged with `diffType`:
+ *   - "removed": polygon area only in `from` (red)
+ *   - "added": polygon area only in `to` (green)
+ *   - "connector": line connecting corresponding points
+ * - `error`: set if overlay computation was attempted but threw (e.g. invalid geometry)
  *
- * Returns null if no overlay can be computed (e.g. both lines,
- * incompatible types, or identical polygons).
+ * Both fields are absent if no overlay applies (incompatible types, both lines, etc).
  */
-export function computeDiffOverlay(
-  from: GeoJSON,
-  to: GeoJSON,
-): FeatureCollection | undefined {
+export function computeDiffOverlay(from: GeoJSON, to: GeoJSON): DiffOverlayResult {
   const fromType = getPrimaryGeomType(from);
   const toType = getPrimaryGeomType(to);
 
   // Incompatible or unsupported types → no overlay
-  if (!fromType || !toType || fromType !== toType) return;
+  if (!fromType || !toType || fromType !== toType) return {};
 
-  switch (fromType) {
-    case "polygon":
-      return computePolygonOverlay(from, to);
-    case "point":
-      // Toggle SHOW_POINT_CONNECTORS to disable point displacement indicators
-      if (SHOW_POINT_CONNECTORS) return computePointOverlay(from, to);
-    case "line":
-      // Line overlay not implemented; toggle SHOW_LINE_OVERLAY to enable
-      if (!SHOW_LINE_OVERLAY) return;
+  try {
+    switch (fromType) {
+      case "polygon":
+        return { overlay: computePolygonOverlay(from, to) };
+      case "point":
+        // Toggle SHOW_POINT_CONNECTORS to disable point displacement indicators
+        if (SHOW_POINT_CONNECTORS) return { overlay: computePointOverlay(from, to) };
+        return {};
+      case "line":
+        // Line overlay not implemented; toggle SHOW_LINE_OVERLAY to enable
+        if (!SHOW_LINE_OVERLAY) return {};
+    }
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    return { error: `Creation of visual diff overlay failed: ${message}` };
   }
+
+  return {};
 }
