@@ -218,6 +218,12 @@ export const diffState = new DiffState();
 // Diff Menu UI
 // ========================================
 
+const STORAGE_KEY_SHOW_DIFF_OVERLAY = "showDiffOverlay";
+
+function getShowDiffOverlay(): boolean {
+  return localStorage.getItem(STORAGE_KEY_SHOW_DIFF_OVERLAY) !== "false";
+}
+
 export function buildDiffMenu(): HTMLElement[] {
   const left = create("ul");
   const right = create("ul");
@@ -259,6 +265,20 @@ export function buildDiffMenu(): HTMLElement[] {
         (labelInput.node() as HTMLInputElement).value.trim() || undefined;
       diffState.confirmSelection(label);
     });
+
+  // Show diff overlay toggle (always visible, persisted to localStorage)
+  const showOverlayLi = right.append("li");
+  const showOverlayLabel = showOverlayLi.append("label");
+  showOverlayLabel
+    .append("input")
+    .attr("type", "checkbox")
+    .property("checked", getShowDiffOverlay())
+    .on("change", function () {
+      const checked = (this as HTMLInputElement).checked;
+      localStorage.setItem(STORAGE_KEY_SHOW_DIFF_OVERLAY, checked.toString());
+      window.map?.setDiffOverlayVisible(checked);
+    });
+  showOverlayLabel.node()?.append("Show diff overlay");
 
   function updateMenu() {
     const selecting = diffState.isSelecting();

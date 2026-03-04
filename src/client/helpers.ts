@@ -6,7 +6,8 @@ import type { GeoJSON } from "geojson";
 import { isDark } from "../../vendor/theme-switcher.js";
 import type { DiffEntry, SendMessage } from "../../types.js";
 
-// TokyoNight color palettes for feature visualization
+// TokyoNight color palettes for feature visualization.
+// Red is excluded from rotation — it's reserved for semantic use (errors/removed).
 const COLOR_PALETTE_LIGHT = [
   "#2e7de9", // blue
   "#587539", // green
@@ -15,7 +16,6 @@ const COLOR_PALETTE_LIGHT = [
   "#b15c00", // orange
   "#7847bd", // magenta
   "#8c6c3e", // yellow
-  "#f52a65", // red
 ];
 
 const COLOR_PALETTE_DARK = [
@@ -26,9 +26,23 @@ const COLOR_PALETTE_DARK = [
   "#ff966c", // orange
   "#c099ff", // magenta
   "#ffc777", // yellow
-  "#ff757f", // red
 ];
-// Get theme-appropriate color for map features using indexed palette
+
+// Semantic colors for errors/removed, added/success, and warnings.
+// Kept separate from the feature palette so they carry consistent meaning.
+export const SEMANTIC_COLORS = {
+  dark: {
+    error: "#ff757f", // TokyoNight dark red
+    added: "#73daca", // TokyoNight green1/teal
+    warning: "#ffc777", // TokyoNight dark yellow
+  },
+  light: {
+    error: "#f52a65", // TokyoNight light red
+    added: "#33948c", // TokyoNight light teal
+    warning: "#8c6c3e", // TokyoNight light yellow
+  },
+} as const;
+
 /**
  * Get theme-appropriate color using an indexed palette.
  */
@@ -36,6 +50,15 @@ function getFeatureColor(index: number): string {
   const palette = isDark() ? COLOR_PALETTE_DARK : COLOR_PALETTE_LIGHT;
 
   return palette[index % palette.length] as string;
+}
+
+/**
+ * Get a semantic color for the current theme.
+ */
+function getSemanticColor(
+  kind: keyof typeof SEMANTIC_COLORS.dark,
+): string {
+  return isDark() ? SEMANTIC_COLORS.dark[kind] : SEMANTIC_COLORS.light[kind];
 }
 
 /**
@@ -51,7 +74,10 @@ function getGeoJSONTypeLine(gj: GeoJSON): string {
     case "Feature": {
       const id = gj.id ?? gj.properties?.id ?? null;
       const geomType = gj.geometry != null ? gj.geometry.type : "null";
-      return (id !== null ? `<strong>${id}:</strong> ` : "") + `Feature (${geomType})`;
+      return (
+        (id !== null ? `<strong>${id}:</strong> ` : "") +
+        `Feature (${geomType})`
+      );
     }
     default:
       return `Geometry (${gj.type})`;
@@ -99,4 +125,9 @@ function createDiffMetadataHTML(d: DiffEntry): string {
   return displayLines.join("<br>");
 }
 
-export { getFeatureColor, createMetadataHTML, createDiffMetadataHTML };
+export {
+  getFeatureColor,
+  getSemanticColor,
+  createMetadataHTML,
+  createDiffMetadataHTML,
+};

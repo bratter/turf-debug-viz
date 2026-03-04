@@ -6,7 +6,7 @@ import type { GeoJSON, Feature, FeatureCollection } from "geojson";
 import type { ViewRow } from "../../types.js";
 import { isDark } from "../../vendor/theme-switcher.js";
 import { config } from "../config.js";
-import { createMetadataHTML, getFeatureColor } from "./helpers.ts";
+import { createMetadataHTML, getFeatureColor, getSemanticColor } from "./helpers.ts";
 
 // MapBox GL is loaded via CDN script tag
 declare const mapboxgl: typeof import("mapbox-gl");
@@ -101,6 +101,9 @@ class MapView {
   private showVerticesInternal: boolean;
   private fitScheduled = false;
   private fitTargetIndices: number[] | null = null;
+  private diffOverlayData: FeatureCollection | null | undefined = undefined;
+  private diffOverlayVisible = true;
+  private diffOverlayHandlersAdded = false;
 
   constructor(
     container: HTMLElement | string,
@@ -172,6 +175,10 @@ class MapView {
     this.map.on("style.load", () => {
       for (const row of this.getRenderData()) {
         this.addToMap(row);
+      }
+      // Re-add diff overlay if it was previously initialized
+      if (this.diffOverlayData !== undefined) {
+        this.addDiffOverlayLayers();
       }
     });
   }
@@ -454,6 +461,152 @@ class MapView {
       );
     } catch (err) {
       console.error(`Failed to set visibility for row ${index}:`, err);
+    }
+  }
+
+  // Set the diff overlay GeoJSON. First call creates source and layers;
+  // subsequent calls update the source data. Pass null to clear.
+  setDiffOverlay(overlay: FeatureCollection | null | undefined): void {
+    this.diffOverlayData = overlay;
+    const data: FeatureCollection = overlay ?? {
+      type: "FeatureCollection",
+      features: [],
+    };
+    const source = this.map.getSource("source-diff-overlay") as
+      | mapboxgl.GeoJSONSource
+      | undefined;
+    if (source) {
+      source.setData(data);
+    } else {
+      this.addDiffOverlayLayers();
+    }
+  }
+
+  // Toggle visibility of all diff overlay layers
+  setDiffOverlayVisible(visible: boolean): void {
+    this.diffOverlayVisible = visible;
+    const visibility = visible ? "visible" : "none";
+    for (const id of [
+      "layer-diff-overlay-fill",
+      "layer-diff-overlay-line",
+      "layer-diff-overlay-hitzone",
+    ]) {
+      try {
+        if (this.map.getLayer(id)) {
+          this.map.setLayoutProperty(id, "visibility", visibility);
+        }
+      } catch {
+        // Layer may not exist yet
+      }
+    }
+  }
+
+  // Add source and layers for diff overlay. Called on first use and after
+  // style changes (which wipe all sources/layers).
+  private addDiffOverlayLayers(): void {
+    const REMOVED_COLOR = getSemanticColor("error");
+    const ADDED_COLOR = getSemanticColor("added");
+    const diffTypeColor = [
+      "match",
+      ["get", "diffType"],
+      "added",
+      ADDED_COLOR,
+      REMOVED_COLOR,
+    ];
+
+    const data: FeatureCollection = this.diffOverlayData ?? {
+      type: "FeatureCollection",
+      features: [],
+    };
+
+    this.map.addSource("source-diff-overlay", { type: "geojson", data });
+
+    // Fill layer: polygon removed/added areas
+    this.map.addLayer({
+      id: "layer-diff-overlay-fill",
+      type: "fill",
+      source: "source-diff-overlay",
+      paint: {
+        "fill-color": diffTypeColor as any,
+        "fill-opacity": 0.4,
+      },
+      filter: ["in", ["get", "diffType"], ["literal", ["removed", "added"]]],
+    });
+
+    // Line layer: polygon outlines and connector lines
+    this.map.addLayer({
+      id: "layer-diff-overlay-line",
+      type: "line",
+      source: "source-diff-overlay",
+      paint: {
+        "line-color": diffTypeColor as any,
+        "line-width": 2,
+      },
+      filter: [
+        "in",
+        ["get", "diffType"],
+        ["literal", ["removed", "added", "connector"]],
+      ],
+    });
+
+    // Hitzone layer: wide invisible line for connector hover detection
+    this.map.addLayer({
+      id: "layer-diff-overlay-hitzone",
+      type: "line",
+      source: "source-diff-overlay",
+      paint: {
+        "line-color": "rgba(0, 0, 0, 0)",
+        "line-width": 20,
+      },
+      filter: [
+        "in",
+        ["geometry-type"],
+        ["literal", ["LineString", "MultiLineString"]],
+      ],
+    });
+
+    // Restore visibility preference (e.g. after a style reload)
+    if (!this.diffOverlayVisible) {
+      this.setDiffOverlayVisible(false);
+    }
+
+    // Register popup handlers once — they persist through style changes
+    // since they are registered on the map event system, not tied to a source
+    if (!this.diffOverlayHandlersAdded) {
+      this.diffOverlayHandlersAdded = true;
+
+      this.map.on("mousemove", "layer-diff-overlay-fill", (e) => {
+        const feature = e.features?.[0];
+        if (!feature) return;
+        const diffType = feature.properties?.diffType as string;
+        let html = diffType === "added" ? "Added" : "Removed";
+        try {
+          const area = turf.area(feature as any) / 1e6;
+          html += `<br>Area: ${area.toFixed(4)} km²`;
+        } catch {
+          // ignore
+        }
+        this.popup.setLngLat(e.lngLat).setHTML(html).addTo(this.map);
+      });
+      this.map.on("mouseleave", "layer-diff-overlay-fill", () => {
+        this.popup.remove();
+      });
+
+      this.map.on("mousemove", "layer-diff-overlay-hitzone", (e) => {
+        const feature = e.features?.[0];
+        if (!feature) return;
+        let html = "Point displacement";
+        try {
+          const dist = turf.length(feature as any, { units: "kilometers" });
+          html += `<br>Distance: ${dist.toFixed(4)} km`;
+        } catch {
+          // ignore
+        }
+        this.popup.setLngLat(e.lngLat).setHTML(html).addTo(this.map);
+      });
+      this.map.on("mouseleave", "layer-diff-overlay-hitzone", () => {
+        this.popup.remove();
+      });
     }
   }
 

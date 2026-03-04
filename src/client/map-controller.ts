@@ -11,6 +11,7 @@ import { MapView } from "./map.ts";
 import { viewState } from "./view.ts";
 import { diffState } from "./diff.ts";
 import { Mode, getCurrentMode, getAutoFit } from "./mode-menu.ts";
+import { computeDiffOverlay } from "../diff/overlay.ts";
 
 class MapController {
   private map: MapView;
@@ -86,6 +87,11 @@ class MapController {
 
     this.applyDiffModeVisibility(diff);
 
+    const overlay = diff
+      ? computeDiffOverlay(diff.from.geojson, diff.to.geojson)
+      : null;
+    this.map.setDiffOverlay(overlay);
+
     if (getAutoFit() && diff) {
       // In diff mode, fit to indices regardless of isHidden
       this.map.scheduleFit([diff.from.index, diff.to.index], false);
@@ -99,8 +105,14 @@ class MapController {
   private handleModeChange(mode: Mode): void {
     if (mode === Mode.VIEW) {
       this.applyViewModeVisibility();
+      this.map.setDiffOverlay(null);
     } else {
-      this.applyDiffModeVisibility(diffState.getActiveDiff());
+      const diff = diffState.getActiveDiff();
+      this.applyDiffModeVisibility(diff);
+      const overlay = diff
+        ? computeDiffOverlay(diff.from.geojson, diff.to.geojson)
+        : null;
+      this.map.setDiffOverlay(overlay);
     }
     this.scheduleAutofit();
   }
