@@ -16,6 +16,7 @@ import { viewState } from "./view.ts";
 import { diffState } from "./diff.ts";
 import { initList } from "./list.ts";
 import { initGeoJsonView } from "./geojson-view.ts";
+import { initDiffView } from "./diff-view.ts";
 
 declare global {
   interface Window {
@@ -83,6 +84,9 @@ initList();
 
 // Initialize the GeoJSON tree view renderer (subscribes to activate events)
 initGeoJsonView();
+
+// Initialize the diff tree view renderer (subscribes to diff state and mode changes)
+initDiffView();
 
 // Cascade ViewRow deletions: remove any diffs referencing the deleted row
 viewState.addEventListener("change", (e) => {

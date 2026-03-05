@@ -477,3 +477,145 @@ nav#mode-menu[data-mode="diff"] > ul:first-child > li:first-child::after {
   font-weight: 700;
   color: var(--color);
 }
+
+/* ========================================
+   Diff Tree Layout
+   ======================================== */
+
+.gjv-diff-layout {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 8px;
+}
+
+/* Overlay error spans full width below both columns */
+.gjv-diff-layout > p.overlay-error {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+.gjv-diff-col {
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.gjv-diff-col header {
+  font-weight: 600;
+  padding: var(--space-xs) var(--space-sm);
+  border-bottom: var(--border-width) solid var(--primary-border);
+  margin-bottom: var(--space-sm);
+}
+
+/* ========================================
+   Diff Highlight Base Colors
+   ======================================== */
+
+/* Direct line highlights (leaf values and collapsible headers) */
+.gjv-line.gjv-diff-removed {
+  background: rgba(255, 77, 77, 0.15);
+}
+.gjv-line.gjv-diff-added {
+  background: rgba(77, 204, 77, 0.15);
+}
+.gjv-line.gjv-diff-changed {
+  background: rgba(255, 185, 0, 0.15);
+}
+.gjv-line.gjv-diff-missing {
+  background: rgba(128, 128, 128, 0.06);
+}
+
+/* Subtree propagation: body lines and closing bracket for removed/added/missing */
+.gjv-node.gjv-diff-removed > .gjv-body .gjv-line,
+.gjv-node.gjv-diff-removed > .gjv-line:last-child {
+  background: rgba(255, 77, 77, 0.15);
+}
+.gjv-node.gjv-diff-added > .gjv-body .gjv-line,
+.gjv-node.gjv-diff-added > .gjv-line:last-child {
+  background: rgba(77, 204, 77, 0.15);
+}
+.gjv-node.gjv-diff-missing > .gjv-body .gjv-line,
+.gjv-node.gjv-diff-missing > .gjv-line:last-child {
+  background: rgba(128, 128, 128, 0.06);
+}
+
+/* ========================================
+   Left-Edge Extension (matches lint behavior)
+   ======================================== */
+
+/* Direct diff lines inside any .gjv-body (all nesting depths) */
+.gjv-body
+  :is(
+    .gjv-line.gjv-diff-removed,
+    .gjv-line.gjv-diff-added,
+    .gjv-line.gjv-diff-changed,
+    .gjv-line.gjv-diff-missing
+  ) {
+  margin-left: calc(-1 * var(--gjv-indent));
+  padding-left: var(--gjv-indent);
+}
+
+/* Body lines and closing brackets inside diff-marked nodes within .gjv-body */
+.gjv-body
+  .gjv-node:is(.gjv-diff-removed, .gjv-diff-added, .gjv-diff-missing)
+  > .gjv-body
+  .gjv-line,
+.gjv-body
+  .gjv-node:is(.gjv-diff-removed, .gjv-diff-added, .gjv-diff-missing)
+  > .gjv-line:last-child {
+  margin-left: calc(-1 * var(--gjv-indent));
+  padding-left: var(--gjv-indent);
+}
+
+/* Top-level diff-marked node headers and closing brackets */
+.gjv-root
+  > .gjv-node
+  > .gjv-line:first-child:is(
+    .gjv-diff-removed,
+    .gjv-diff-added,
+    .gjv-diff-changed,
+    .gjv-diff-missing
+  ),
+.gjv-root
+  > .gjv-node:is(.gjv-diff-removed, .gjv-diff-added, .gjv-diff-missing)
+  > .gjv-line:first-child,
+.gjv-root
+  > .gjv-node:is(.gjv-diff-removed, .gjv-diff-added, .gjv-diff-missing)
+  > .gjv-line:last-child {
+  margin-left: calc(-1 * var(--space-sm));
+  padding-left: var(--space-sm);
+}
+
+/* ========================================
+   Hover: increase opacity, don't switch to primary grey
+   ======================================== */
+
+/* Override default header hover for diff-highlighted lines.
+   Specificity matches .gjv-node > .gjv-line:first-child:not(:has(.gjv-icons)):hover
+   so later position wins. */
+.gjv-node > .gjv-line:first-child.gjv-diff-removed:hover,
+.gjv-node.gjv-diff-removed > .gjv-body .gjv-line:hover,
+.gjv-node.gjv-diff-removed > .gjv-line:last-child:hover,
+.gjv-line.gjv-diff-removed:hover {
+  background: rgba(255, 77, 77, 0.28);
+}
+
+.gjv-node > .gjv-line:first-child.gjv-diff-added:hover,
+.gjv-node.gjv-diff-added > .gjv-body .gjv-line:hover,
+.gjv-node.gjv-diff-added > .gjv-line:last-child:hover,
+.gjv-line.gjv-diff-added:hover {
+  background: rgba(77, 204, 77, 0.28);
+}
+
+.gjv-node > .gjv-line:first-child.gjv-diff-changed:hover,
+.gjv-line.gjv-diff-changed:hover {
+  background: rgba(255, 185, 0, 0.28);
+}
+
+.gjv-node > .gjv-line:first-child.gjv-diff-missing:hover,
+.gjv-node.gjv-diff-missing > .gjv-body .gjv-line:hover,
+.gjv-node.gjv-diff-missing > .gjv-line:last-child:hover,
+.gjv-line.gjv-diff-missing:hover {
+  background: rgba(128, 128, 128, 0.12);
+}
