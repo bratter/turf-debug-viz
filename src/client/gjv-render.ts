@@ -414,7 +414,7 @@ function renderCoords(
  * Fills a pre-created line element with a position's `[x, y]` content,
  * a trailing comma, and any annotations for the given path.
  */
-function renderPosition(
+export function renderPosition(
   line: HTMLElement,
   pos: unknown,
   path: Path,

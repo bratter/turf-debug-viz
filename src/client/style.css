@@ -526,17 +526,14 @@ nav#mode-menu[data-mode="diff"] > ul:first-child > li:first-child::after {
   background: rgba(128, 128, 128, 0.06);
 }
 
-/* Subtree propagation: body lines and closing bracket for removed/added/missing */
-.gjv-node.gjv-diff-removed > .gjv-body .gjv-line,
-.gjv-node.gjv-diff-removed > .gjv-line:last-child {
+/* Subtree coloring: background on the body block itself, not per-line */
+.gjv-body.gjv-diff-removed {
   background: rgba(255, 77, 77, 0.15);
 }
-.gjv-node.gjv-diff-added > .gjv-body .gjv-line,
-.gjv-node.gjv-diff-added > .gjv-line:last-child {
+.gjv-body.gjv-diff-added {
   background: rgba(77, 204, 77, 0.15);
 }
-.gjv-node.gjv-diff-missing > .gjv-body .gjv-line,
-.gjv-node.gjv-diff-missing > .gjv-line:last-child {
+.gjv-body.gjv-diff-missing {
   background: rgba(128, 128, 128, 0.06);
 }
 
@@ -556,19 +553,7 @@ nav#mode-menu[data-mode="diff"] > ul:first-child > li:first-child::after {
   padding-left: var(--gjv-indent);
 }
 
-/* Body lines and closing brackets inside diff-marked nodes within .gjv-body */
-.gjv-body
-  .gjv-node:is(.gjv-diff-removed, .gjv-diff-added, .gjv-diff-missing)
-  > .gjv-body
-  .gjv-line,
-.gjv-body
-  .gjv-node:is(.gjv-diff-removed, .gjv-diff-added, .gjv-diff-missing)
-  > .gjv-line:last-child {
-  margin-left: calc(-1 * var(--gjv-indent));
-  padding-left: var(--gjv-indent);
-}
-
-/* Top-level diff-marked node headers and closing brackets */
+/* Top-level diff-highlighted lines extend flush to the panel left edge */
 .gjv-root
   > .gjv-node
   > .gjv-line:first-child:is(
@@ -578,13 +563,22 @@ nav#mode-menu[data-mode="diff"] > ul:first-child > li:first-child::after {
     .gjv-diff-missing
   ),
 .gjv-root
-  > .gjv-node:is(.gjv-diff-removed, .gjv-diff-added, .gjv-diff-missing)
-  > .gjv-line:first-child,
-.gjv-root
-  > .gjv-node:is(.gjv-diff-removed, .gjv-diff-added, .gjv-diff-missing)
-  > .gjv-line:last-child {
+  > .gjv-node
+  > .gjv-line:last-child:is(
+    .gjv-diff-removed,
+    .gjv-diff-added,
+    .gjv-diff-missing
+  ) {
   margin-left: calc(-1 * var(--space-sm));
   padding-left: var(--space-sm);
+}
+
+/* Top-level diff body blocks extend flush to the panel left edge */
+.gjv-root
+  > .gjv-node
+  > .gjv-body:is(.gjv-diff-removed, .gjv-diff-added, .gjv-diff-missing) {
+  margin-left: calc(-1 * var(--space-sm));
+  padding-left: calc(var(--space-sm) + var(--gjv-indent));
 }
 
 /* ========================================
@@ -595,15 +589,11 @@ nav#mode-menu[data-mode="diff"] > ul:first-child > li:first-child::after {
    Specificity matches .gjv-node > .gjv-line:first-child:not(:has(.gjv-icons)):hover
    so later position wins. */
 .gjv-node > .gjv-line:first-child.gjv-diff-removed:hover,
-.gjv-node.gjv-diff-removed > .gjv-body .gjv-line:hover,
-.gjv-node.gjv-diff-removed > .gjv-line:last-child:hover,
 .gjv-line.gjv-diff-removed:hover {
   background: rgba(255, 77, 77, 0.28);
 }
 
 .gjv-node > .gjv-line:first-child.gjv-diff-added:hover,
-.gjv-node.gjv-diff-added > .gjv-body .gjv-line:hover,
-.gjv-node.gjv-diff-added > .gjv-line:last-child:hover,
 .gjv-line.gjv-diff-added:hover {
   background: rgba(77, 204, 77, 0.28);
 }
@@ -614,8 +604,13 @@ nav#mode-menu[data-mode="diff"] > ul:first-child > li:first-child::after {
 }
 
 .gjv-node > .gjv-line:first-child.gjv-diff-missing:hover,
-.gjv-node.gjv-diff-missing > .gjv-body .gjv-line:hover,
-.gjv-node.gjv-diff-missing > .gjv-line:last-child:hover,
 .gjv-line.gjv-diff-missing:hover {
   background: rgba(128, 128, 128, 0.12);
+}
+
+/* Spacer: matches the height of a single .gjv-line for alignment.
+   Background tint signals that this slot is empty on this side. */
+.gjv-diff-spacer {
+  height: 1.6em; /* matches .gjv-root line-height: 1.6 */
+  background: rgba(128, 128, 128, 0.06);
 }

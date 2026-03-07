@@ -7,10 +7,8 @@
 
 import { diffState } from "./diff.ts";
 import { Mode, getCurrentMode } from "./mode-menu.ts";
-import { diffGeoJSON, buildDiffMap } from "../diff/engine.ts";
-import { renderGeoJSON, removeLastComma } from "./gjv-render.ts";
-import type { AnnotationFn } from "./gjv-render.ts";
-import type { DiffStatus } from "../diff/types.ts";
+import { diffGeoJSON } from "../diff/engine.ts";
+import { renderDiffPair } from "./diff-render.ts";
 import type { DiffEntry, ViewRow } from "../../types.js";
 
 // ========================================
@@ -28,7 +26,6 @@ export function initDiffView(): void {
     const result = diffGeoJSON(diff.from.geojson, diff.to.geojson, {
       normalize: true,
     });
-    const diffMap = buildDiffMap(result);
 
     container.classList.add("gjv-diff-layout");
 
@@ -42,21 +39,16 @@ export function initDiffView(): void {
     fromCol.appendChild(makeDiffColHeader("from", diff.from));
     toCol.appendChild(makeDiffColHeader("to", diff.to));
 
-    // Render both trees
-    const fromAnnotate = makeDiffAnnotations(diffMap, "from");
-    const toAnnotate = makeDiffAnnotations(diffMap, "to");
-
+    // Render both trees in lockstep for alignment + synchronized collapse
     const fromRoot = document.createElement("div");
     fromRoot.className = "gjv-root";
     fromCol.appendChild(fromRoot);
-    renderGeoJSON(fromRoot, diff.from.geojson, [], fromAnnotate);
-    removeLastComma(fromRoot);
 
     const toRoot = document.createElement("div");
     toRoot.className = "gjv-root";
     toCol.appendChild(toRoot);
-    renderGeoJSON(toRoot, diff.to.geojson, [], toAnnotate);
-    removeLastComma(toRoot);
+
+    renderDiffPair(fromRoot, toRoot, result);
 
     container.appendChild(fromCol);
     container.appendChild(toCol);
@@ -79,39 +71,6 @@ export function initDiffView(): void {
       container.classList.remove("gjv-diff-layout");
     }
   });
-}
-
-// ========================================
-// Diff Annotation Provider
-// ========================================
-
-function makeDiffAnnotations(
-  diffMap: Map<string, DiffStatus>,
-  side: "from" | "to",
-): AnnotationFn {
-  return (line, path) => {
-    const status = diffMap.get(JSON.stringify(path));
-    if (!status || status === "unchanged") return;
-
-    let cls: string;
-    if (status === "removed") {
-      cls = side === "from" ? "gjv-diff-removed" : "gjv-diff-missing";
-    } else if (status === "added") {
-      cls = side === "from" ? "gjv-diff-missing" : "gjv-diff-added";
-    } else {
-      // changed: only highlight this line, no subtree propagation needed
-      line.classList.add("gjv-diff-changed");
-      return;
-    }
-
-    line.classList.add(cls);
-
-    // For removed/added/missing: also mark the parent .gjv-node so CSS can
-    // propagate the highlight to the entire body and closing bracket.
-    if (line.parentElement?.classList.contains("gjv-node")) {
-      line.parentElement.classList.add(cls);
-    }
-  };
 }
 
 // ========================================
