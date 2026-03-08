@@ -85,6 +85,7 @@ function renderGroupPair(
 
   removeLastComma(fromBody);
   removeLastComma(toBody);
+  collapseIfTrivial(fromNode, toNode, fromBody, toBody);
   addClosingLine(fromNode, close);
   addClosingLine(toNode, close);
 }
@@ -142,6 +143,7 @@ function renderGeometryGroupPair(
 
   removeLastComma(fromBody);
   removeLastComma(toBody);
+  collapseIfTrivial(fromNode, toNode, fromBody, toBody);
   addClosingLine(fromNode, "}");
   addClosingLine(toNode, "}");
 }
@@ -165,11 +167,29 @@ function renderCoordsPair(
 ): void {
   // Position level: always render inline regardless of node structure
   if (fromDepth === 0 || toDepth === 0) {
-    const fromCoords = extractPositionCoords(node, "from");
-    const toCoords = extractPositionCoords(node, "to");
-    const diffClass = node.status === "unchanged" ? null : "gjv-diff-changed";
-    appendPositionLine(fromParent, fromCoords, keyLabel, diffClass);
-    appendPositionLine(toParent, toCoords, keyLabel, diffClass);
+    if (node.kind === "leaf" && node.status === "removed") {
+      appendPositionLine(
+        fromParent,
+        Array.isArray(node.from) ? (node.from as unknown[]) : [],
+        keyLabel,
+        "gjv-diff-removed",
+      );
+      appendSpacer(toParent);
+    } else if (node.kind === "leaf" && node.status === "added") {
+      appendSpacer(fromParent);
+      appendPositionLine(
+        toParent,
+        Array.isArray(node.to) ? (node.to as unknown[]) : [],
+        keyLabel,
+        "gjv-diff-added",
+      );
+    } else {
+      const fromCoords = extractPositionCoords(node, "from");
+      const toCoords = extractPositionCoords(node, "to");
+      const diffClass = node.status === "unchanged" ? null : "gjv-diff-changed";
+      appendPositionLine(fromParent, fromCoords, keyLabel, diffClass);
+      appendPositionLine(toParent, toCoords, keyLabel, diffClass);
+    }
     return;
   }
 
@@ -209,6 +229,7 @@ function renderCoordsPair(
 
   removeLastComma(fromBody);
   removeLastComma(toBody);
+  collapseIfTrivial(fromNode, toNode, fromBody, toBody);
   addClosingLine(fromNode, "]");
   addClosingLine(toNode, "]");
 }
@@ -230,6 +251,18 @@ function renderCoordLeafPair(
   fromDepth: number,
   toDepth: number,
 ): void {
+  // Always render positions inline regardless of depth tracking
+  if (leaf.status === "removed" && isPositionArray(leaf.from)) {
+    appendPositionLine(fromParent, leaf.from as unknown[], keyLabel, "gjv-diff-removed");
+    appendSpacer(toParent);
+    return;
+  }
+  if (leaf.status === "added" && isPositionArray(leaf.to)) {
+    appendSpacer(fromParent);
+    appendPositionLine(toParent, leaf.to as unknown[], keyLabel, "gjv-diff-added");
+    return;
+  }
+
   if (leaf.status === "removed") {
     const valueDepth = fromDepth - 1;
     if (valueDepth <= 0) {
@@ -327,7 +360,14 @@ function renderLeafPair(
     renderLeafValue(toParent, from, keyLabel, null);
   } else if (status === "changed") {
     renderLeafValue(fromParent, from, keyLabel, "gjv-diff-changed");
+    const fromEl = fromParent.lastElementChild as HTMLElement | null;
     renderLeafValue(toParent, to, keyLabel, "gjv-diff-changed");
+    const toEl = toParent.lastElementChild as HTMLElement | null;
+    // If one side is a collapsible and the other renders inline, collapse the collapsible
+    const fromIsNode = fromEl?.classList.contains("gjv-node") ?? false;
+    const toIsNode = toEl?.classList.contains("gjv-node") ?? false;
+    if (fromIsNode && !toIsNode && fromEl) fromEl.classList.add("closed");
+    else if (toIsNode && !fromIsNode && toEl) toEl.classList.add("closed");
   } else if (status === "removed") {
     if (isComplexValue(from)) {
       renderLinkedSubtreePair(
@@ -375,12 +415,11 @@ function renderLeafValue(
       appendPositionLine(parent, value as unknown[], keyLabel, diffClass);
       return;
     }
-    // Non-position object/array: pre-collapsed subtree
+    // Non-position object/array: render subtree with diff class
     renderGeoJSON(parent, value, [], noAnnotate, keyLabel);
     const el = parent.lastElementChild as HTMLElement;
     if (el && diffClass) {
       applyNodeDiffClass(el, diffClass);
-      if (el.classList.contains("gjv-node")) el.classList.add("closed");
     }
     return;
   }
@@ -440,10 +479,11 @@ function appendPositionLine(
 }
 
 /**
- * Renders a removed/added complex value (non-position object/array) as a
- * linked collapsible pair. The value is rendered on BOTH sides: active side
- * with its diff class (red/green), the other side with gjv-diff-missing (grey).
- * Both collapse/expand in sync so lines below stay aligned.
+ * Renders a removed/added complex value (non-position object/array).
+ * The value is rendered on BOTH sides so heights match and everything below
+ * stays aligned. The active side gets its diff color; the missing side is
+ * rendered invisibly (visibility:hidden) so it occupies the same space without
+ * showing any content. Collapse/expand is linked so both sides stay in sync.
  */
 function renderLinkedSubtreePair(
   fromParent: HTMLElement,
@@ -461,13 +501,16 @@ function renderLinkedSubtreePair(
 
   if (!fromNode || !toNode) return;
 
-  applyNodeDiffClass(fromNode, fromDiffClass);
-  applyNodeDiffClass(toNode, toDiffClass);
+  // Active side gets the diff color; missing side is invisible but present for alignment
+  if (fromDiffClass === "gjv-diff-missing") {
+    fromNode.style.visibility = "hidden";
+    applyNodeDiffClass(toNode, toDiffClass);
+  } else {
+    applyNodeDiffClass(fromNode, fromDiffClass);
+    toNode.style.visibility = "hidden";
+  }
 
-  fromNode.classList.add("closed");
-  toNode.classList.add("closed");
-
-  // Link: each node's header already self-toggles via renderGeoJSON; add cross-toggle
+  // Link expand/collapse so both sides stay in sync
   if (
     fromNode.classList.contains("gjv-node") &&
     toNode.classList.contains("gjv-node")
@@ -480,6 +523,36 @@ function renderLinkedSubtreePair(
     toHeader?.addEventListener("click", () =>
       fromNode.classList.toggle("closed"),
     );
+    linkSubtreeNodes(fromNode, toNode);
+  }
+}
+
+/**
+ * Walks two identically-structured gjv-node subtrees in parallel and adds
+ * cross-toggle listeners so collapsing any inner node on one side also
+ * collapses the corresponding node on the other side.
+ */
+function linkSubtreeNodes(fromNode: HTMLElement, toNode: HTMLElement): void {
+  const fromBody = fromNode.querySelector(":scope > .gjv-body");
+  const toBody = toNode.querySelector(":scope > .gjv-body");
+  if (!fromBody || !toBody) return;
+
+  const fromChildren = Array.from(fromBody.children).filter((el) =>
+    el.classList.contains("gjv-node"),
+  ) as HTMLElement[];
+  const toChildren = Array.from(toBody.children).filter((el) =>
+    el.classList.contains("gjv-node"),
+  ) as HTMLElement[];
+
+  const len = Math.min(fromChildren.length, toChildren.length);
+  for (let i = 0; i < len; i++) {
+    const fn = fromChildren[i];
+    const tn = toChildren[i];
+    const fh = fn.firstElementChild as HTMLElement;
+    const th = tn.firstElementChild as HTMLElement;
+    fh?.addEventListener("click", () => tn.classList.toggle("closed"));
+    th?.addEventListener("click", () => fn.classList.toggle("closed"));
+    linkSubtreeNodes(fn, tn);
   }
 }
 
@@ -664,9 +737,46 @@ function isPositionArray(value: unknown): boolean {
   );
 }
 
+/**
+ * Collapses a linked collapsible pair if the content is trivially asymmetric:
+ * one side is all spacers (empty) and the other has no nested collapsibles
+ * (only inline lines / primitives). Also collapses when both sides are empty.
+ * This avoids showing an expanded but visually unbalanced diff node.
+ */
+function collapseIfTrivial(
+  fromNode: HTMLElement,
+  toNode: HTMLElement,
+  fromBody: HTMLElement,
+  toBody: HTMLElement,
+): void {
+  const fromIsEmpty = Array.from(fromBody.children).every((el) =>
+    el.classList.contains("gjv-diff-spacer"),
+  );
+  const toIsEmpty = Array.from(toBody.children).every((el) =>
+    el.classList.contains("gjv-diff-spacer"),
+  );
+  const fromHasNoNodes = Array.from(fromBody.children).every(
+    (el) =>
+      el.classList.contains("gjv-diff-spacer") ||
+      el.classList.contains("gjv-line"),
+  );
+  const toHasNoNodes = Array.from(toBody.children).every(
+    (el) =>
+      el.classList.contains("gjv-diff-spacer") ||
+      el.classList.contains("gjv-line"),
+  );
+  if ((fromIsEmpty && toHasNoNodes) || (toIsEmpty && fromHasNoNodes)) {
+    fromNode.classList.add("closed");
+    toNode.classList.add("closed");
+  }
+}
+
 function isComplexValue(value: unknown): boolean {
   if (value === null || typeof value !== "object") return false;
-  return !isPositionArray(value);
+  if (isPositionArray(value)) return false;
+  if (Array.isArray(value) && value.length === 0) return false;
+  if (!Array.isArray(value) && Object.keys(value as object).length === 0) return false;
+  return true;
 }
 
 /**

@@ -315,6 +315,15 @@ function renderArray(
   addClosingLine(body.parentElement!, "]");
 }
 
+function isPositionLike(value: unknown): boolean {
+  return (
+    Array.isArray(value) &&
+    value.length >= 2 &&
+    value.length <= 3 &&
+    (value as unknown[]).every((v) => typeof v === "number")
+  );
+}
+
 function renderValue(
   parent: HTMLElement,
   value: unknown,
@@ -323,7 +332,12 @@ function renderValue(
 ): void {
   if (value !== null && typeof value === "object") {
     if (Array.isArray(value)) {
-      renderArray(parent, value, path, annotate);
+      if (isPositionLike(value)) {
+        const line = makeLine(parent);
+        renderPosition(line, value, path, annotate);
+      } else {
+        renderArray(parent, value, path, annotate);
+      }
     } else {
       renderObject(parent, value, path, annotate);
     }
