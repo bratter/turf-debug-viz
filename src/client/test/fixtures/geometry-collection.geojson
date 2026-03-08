@@ -1,0 +1,26 @@
+{
+  "type": "GeometryCollection",
+  "geometries": [
+    { "type": "Point", "coordinates": [-20, 40] },
+    {
+      "type": "LineString",
+      "coordinates": [
+        [-20, 35],
+        [-15, 40],
+        [-10, 35]
+      ]
+    },
+    {
+      "type": "Polygon",
+      "coordinates": [
+        [
+          [-20, 30],
+          [-10, 30],
+          [-10, 35],
+          [-20, 35],
+          [-20, 30]
+        ]
+      ]
+    }
+  ]
+}

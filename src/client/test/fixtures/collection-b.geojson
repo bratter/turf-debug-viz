@@ -1,0 +1,38 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-10, 32] },
+      "properties": { "id": 1, "name": "Point B" }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-10, 25],
+          [-5, 30],
+          [0, 25]
+        ]
+      },
+      "properties": { "id": 2, "name": "Line A" }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-8, 26],
+            [-2, 26],
+            [-2, 29],
+            [-8, 29],
+            [-8, 26]
+          ]
+        ]
+      },
+      "properties": { "id": 3, "name": "Polygon New" }
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+{
+  "type": "Feature",
+  "geometry": { "type": "Point", "coordinates": [1, 20] },
+  "properties": { "name": "Beta", "value": 1, "category": "city" }
+}
