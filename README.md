@@ -1,133 +1,141 @@
 # turf-debug-viz
 
-Real-time debug visualization tool for TurfJS development. Works with any tool that generates GeoJSON, but specifically targeted to the TurfJS environment.
+Real-time GeoJSON debug visualization for TurfJS development. Visualize GeoJSON objects in your browser as your code executes, including when stepping through code in a debugger.
 
-Provides the ability to hook into executing node files and export GeoJSON to a simple visualizer. It can work both adding debug statements into code, or directly from a debug console. It comprises:
+It comprises three parts:
 
 1. A relay server that forwards GeoJSON from the process being observed to the visualizer
-2. A MapBox-driven front end, served statically by the relay server to visualize GeoJSON
-3. A hook script (plus types) to inject into node processes that sends GeoJSON to the relay server and also makes the full turf package available in the global scope
+2. A Mapbox-driven front end, served statically by the relay server, for visualizing GeoJSON
+3. A Node.js import hook that injects `DebugViz` and `turf` globals into running processes
 
-It is intended for use locally in development.
+It is intended for local use during development.
 
-Visualize GeoJSON objects in your browser as your code executes, with support for stepping through code in a debugger.
-
-## Quick Start
-
-```bash
-# Install dependencies
-npm install
-
-# Start the relay server and open browser to http://127.0.0.1:7777
-npm run start
-
-# In another terminal, run your script with the debug hook
-npx tsx --import ./debug-hook.ts your-script.ts
-```
+**The package is an alpha, while it generally works, there are lots of pending improvements!**
 
 ## Installation
 
 ```bash
 git clone https://github.com/bratter/turf-debug-viz.git
 cd turf-debug-viz
-npm install
-npm run build:client
+pnpm install
+pnpm run build
 ```
 
-You must have a MapBox key for using the visualizer. Sign up for one on <https://www.mapbox.com/>, then copy `config.ts.example` to `config.ts` and paste the key into the appropriate location.
+You must have a Mapbox token to use the visualizer. Sign up at <https://www.mapbox.com/>, then copy `src/config.ts.example` to `src/config.ts` and paste your token in.
 
-## Setting Up for Use
-
-### Start the Relay Server
-
-First start the relay server:
+## Quick Start
 
 ```bash
-# In turf-debug-viz folder
-npm run start
+# Start the relay server — opens browser to http://127.0.0.1:8873
+pnpm start
 
-# Custom port
-TURF_DEBUG_PORT=8080 npm start
-
-# Custom host
-TURF_DEBUG_HOST=0.0.0.0 npm start
+# In another terminal, run your script with the debug hook as an import
+# Replace the debug hook path with the correct path for your build
+npx tsx --import ./src/debug-hook.ts your-script.ts
 ```
 
-This will start a server on `http://localhost:7777` by default, or as appropriate with the passed env vars. It will also open a tab in the default browser.
+## Starting the Relay Server
 
-### Use the Debug Hook
+```bash
+# Default — serves on http://127.0.0.1:8873
+pnpm start
 
-Run your NodeJS script using the `--import` flag:
+# Custom port
+TURF_DEBUG_PORT=8080 pnpm start
+
+# Custom host
+TURF_DEBUG_HOST=0.0.0.0 pnpm start
+
+# Enable debug logging
+NODE_DEBUG=turf-debug-viz pnpm start
+```
+
+The browser opens automatically on start.
+
+## Using the Debug Hook
+
+Run your Node.js script with the `--import` flag pointing at the debug hook:
 
 ```bash
 # Using tsx
-npx tsx --import ./debug-hook.ts your-script.ts
+npx tsx --import ./src/debug-hook.ts your-script.ts
 
 # Using node (requires built JS)
-node --import ./debug-hook.js your-script.js
+node --import ./src/debug-hook.js your-script.js
 
 # With custom port (must match server)
-TURF_DEBUG_PORT=8080 npx tsx --import ./debug-hook.ts your-script.ts
+TURF_DEBUG_PORT=8080 npx tsx --import ./src/debug-hook.ts your-script.ts
 
-# With debugger support
-npx tsx --inspect-brk --import ./debug-hook.ts your-script.ts
+# With debugger attached
+npx tsx --inspect-brk --import ./src/debug-hook.ts your-script.ts
 ```
 
-This provides two things to `your-script.ts` in the global scope:
+The hook adds two globals to your script's process:
 
-1. `DebugViz` object to export GeoJSON to the relay server from the running script
-2. `turf` object to provide full turf functionality to enable playing around without forcing a change to the system under test
+- **`DebugViz`** — sends GeoJSON to the relay server
+- **`turf`** — the full `@turf/turf` library, so you can manipulate geometry without modifying the file under test
 
-As above, both can be used in code or from a debug console.
+Both are available in code and in a debug console.
 
-Any turf test file can be augmented like this:
+To use against a turf package test, for example:
 
 ```bash
-# cwd is turf/packages/turf-buffer (for instance)
-npx tsx --inspect-brk --import /path/to/turf-debug-viz/debug-hook.ts ./test.ts
+# cwd is turf/packages/turf-buffer
+npx tsx --inspect-brk --import /path/to/turf-debug-viz/src/debug-hook.ts ./test.ts
 ```
 
-### Adding Types
+## Adding Types
 
-If playing around in a file it might be convenient to remove TypeScript errors and get intellisense. This can be done by dropping a reference path into the system under test. Like the `DebugViz` calls this should be deleted after playing around:
+To get TypeScript type checking and IntelliSense for `DebugViz` and `turf`, add a reference path to the file you're debugging:
 
 ```typescript
 /// <reference path="/path/to/turf-debug-viz/types.d.ts" />
 ```
 
-Run the following in bash when turf-debug-viz is the cwd to get the string to insert:
+Run the first one from the `turf-debug-viz` directory to generate the correct string, run the second from anywhere:
 
 ```bash
 echo "/// <reference path=\"$(realpath types.d.ts)\" />"
+
+# Replace ~ as appropriate to some folder above this package
+echo "/// <reference path=\"$(find ~ -path '*/turf-debug-viz/types.d.ts')\" />"
 ```
 
-## Using DebugViz API
+Remove the reference when you're done debugging.
 
-The hook adds global `DebugViz` functions to your Node.js process that are available both in the project and in the debug console.
+## DebugViz API
 
-The hook will automatically set up and clean up, so there is no need to call open or close methods. Just `send` away.
+The hook adds a global `DebugViz` object. All methods are synchronous — they block until the message is sent, so they work reliably when stepping through code in a debugger. The connection is lazily established on first use and automatically cleaned up on process exit.
 
-### `DebugViz.send(label, geojson)`
+### `DebugViz.send(geojson, label?)`
 
-Synchronously sends GeoJSON to the visualizer. Works correctly when stepping through code in a debugger.
+Send a GeoJSON object to the visualizer.
 
 ```typescript
-import { point } from "@turf/turf";
+DebugViz.send(myFeature);
+DebugViz.send(myFeature, "before-buffer");
 
-const pt = point([0, 0]);
-DebugViz.send("my-point", pt);
-
-// Send any GeoJSON type
-DebugViz.send("feature", {
+// Any GeoJSON type works
+DebugViz.send({
   type: "Feature",
   geometry: { type: "Point", coordinates: [12, 34] },
-  properties: { name: "Test" }
+  properties: { name: "Test" },
 });
+```
+
+### `DebugViz.diff(from, to, label?)`
+
+Send two GeoJSON objects to the visualizer as a diff pair. They appear side by side in the diff view.
+
+```typescript
+const before = turf.buffer(pt, 10);
+const after = turf.buffer(pt, 20);
+DebugViz.diff(before, after, "buffer-comparison");
 ```
 
 ### `DebugViz.isConnected()`
 
-Check connection status:
+Check whether the hook is currently connected to the relay server.
 
 ```typescript
 if (DebugViz.isConnected()) {
@@ -137,7 +145,7 @@ if (DebugViz.isConnected()) {
 
 ### `DebugViz.disconnect()`
 
-Manually disconnect (optional - auto-disconnects on process exit):
+Manually close the connection. Not required — the WebSocket is unref'd and won't prevent process exit.
 
 ```typescript
 DebugViz.disconnect();
@@ -146,3 +154,7 @@ DebugViz.disconnect();
 ## License
 
 MIT
+
+## Disclaimer
+
+This package is not developed or maintained by Turfjs or its maintainers, but is specifically built for the purpose of Turfjs development.
