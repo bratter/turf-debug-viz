@@ -6,8 +6,6 @@ import { Selection, create } from "d3-selection";
 import { buildDiffMenu, diffState } from "./diff";
 import { buildViewMenu } from "./view";
 
-const STORAGE_KEY_AUTOFIT = "turf-debug-autofit";
-
 export enum Mode {
   VIEW = "view",
   DIFF = "diff",
@@ -30,14 +28,15 @@ export function changeMode(mode: Mode) {
   );
 }
 
+let autoFit = true;
+
 // TODO: Pull this from the checkbox when not in this file?
 export function getAutoFit(): boolean {
-  const stored = localStorage.getItem(STORAGE_KEY_AUTOFIT);
-  return stored !== "false"; // Default to true
+  return autoFit;
 }
 
 function setAutoFit(enabled: boolean): void {
-  localStorage.setItem(STORAGE_KEY_AUTOFIT, enabled.toString());
+  autoFit = enabled;
 }
 
 const container = document.getElementById("mode-menu") as HTMLElement;
@@ -111,6 +110,7 @@ function makeMapControls(): HTMLElement {
   autofitLabel
     .append("input")
     .attr("type", "checkbox")
+    .attr("checked", "")
     .property("checked", getAutoFit())
     .on("change", function () {
       const checked = this.checked;

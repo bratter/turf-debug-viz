@@ -10,6 +10,7 @@ import {
   createMetadataHTML,
   getFeatureColor,
   getSemanticColor,
+  forgivingBbox,
 } from "./helpers.ts";
 
 // MapBox GL is loaded via CDN script tag
@@ -364,21 +365,23 @@ class MapView {
 
     if (!rows.length) return;
 
-    const bounds = [Infinity, Infinity, -Infinity, -Infinity] as any;
+    const acc: [number, number, number, number] = [
+      Infinity,
+      Infinity,
+      -Infinity,
+      -Infinity,
+    ];
     for (const row of rows) {
-      try {
-        const cur = turf.bbox(row.geojson);
-        bounds[0] = cur[0] < bounds[0] ? cur[0] : bounds[0];
-        bounds[1] = cur[1] < bounds[1] ? cur[1] : bounds[1];
-        bounds[2] = cur[2] > bounds[2] ? cur[2] : bounds[2];
-        bounds[3] = cur[3] > bounds[3] ? cur[3] : bounds[3];
-      } catch (err) {
-        console.warn(`Skipping row ${row.index} for fit: invalid GeoJSON`, err);
-      }
+      const b = forgivingBbox(row.geojson);
+      if (!b) continue;
+      if (b[0] < acc[0]) acc[0] = b[0];
+      if (b[1] < acc[1]) acc[1] = b[1];
+      if (b[2] > acc[2]) acc[2] = b[2];
+      if (b[3] > acc[3]) acc[3] = b[3];
     }
 
-    if (bounds[0] !== Infinity) {
-      this.map.fitBounds(bounds, MAP_FIT_OPTIONS);
+    if (acc[0] !== Infinity) {
+      this.map.fitBounds(acc, MAP_FIT_OPTIONS);
     }
   }
 
@@ -420,12 +423,8 @@ class MapView {
     const row = this.getRenderData().find((r) => r.index === index);
     if (!row) return;
 
-    try {
-      const bounds = turf.bbox(row.geojson) as mapboxgl.LngLatBoundsLike;
-      this.map.fitBounds(bounds, MAP_FIT_OPTIONS);
-    } catch (err) {
-      console.warn(`Failed to zoom to row ${index}: invalid GeoJSON`, err);
-    }
+    const bounds = forgivingBbox(row.geojson);
+    if (bounds) this.map.fitBounds(bounds, MAP_FIT_OPTIONS);
   }
 
   resize(): void {
@@ -483,6 +482,28 @@ class MapView {
       source.setData(data);
     } else {
       this.addDiffOverlayLayers();
+    }
+  }
+
+  // Mute or restore opacity of from/to shape layers for a diff pair.
+  // Called when the diff overlay is toggled on (mute) or off (restore).
+  setDiffBaseLayersMuted(rowIndices: number[], muted: boolean): void {
+    const fillOpacity = muted ? 0.08 : 0.3;
+    const lineOpacity = muted ? 0.35 : 1.0;
+    const circleOpacity = muted ? 0.25 : 1.0;
+    for (const idx of rowIndices) {
+      const fillId = `layer-${idx}-fill`;
+      const lineId = `layer-${idx}-line`;
+      const circleId = `layer-${idx}-circle`;
+      if (this.map.getLayer(fillId)) {
+        this.map.setPaintProperty(fillId, "fill-opacity", fillOpacity);
+      }
+      if (this.map.getLayer(lineId)) {
+        this.map.setPaintProperty(lineId, "line-opacity", lineOpacity);
+      }
+      if (this.map.getLayer(circleId)) {
+        this.map.setPaintProperty(circleId, "circle-opacity", circleOpacity);
+      }
     }
   }
 

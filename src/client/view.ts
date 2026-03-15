@@ -18,7 +18,8 @@ export type ViewStateChangeDetail =
   | { type: "delete"; index: number }
   | { type: "update"; row: ViewRow }
   | { type: "activate"; row: ViewRow | null }
-  | { type: "clear"; rows: ViewRow[] };
+  | { type: "clear"; rows: ViewRow[] }
+  | { type: "showall" };
 
 interface ViewStateEventMap {
   change: CustomEvent<ViewStateChangeDetail>;
@@ -153,6 +154,38 @@ class ViewState extends EventTarget {
   }
 
   /**
+   * Show only the given row, hiding all others.
+   * Always emits "activate" so map-controller can autofit if enabled.
+   */
+  soloRow(index: number): void {
+    for (const row of this.rows) {
+      const shouldHide = row.index !== index;
+      if (row.isHidden !== shouldHide) {
+        row.isHidden = shouldHide;
+        this.emit({ type: "update", row });
+      }
+    }
+    const row = this.getRow(index);
+    if (row) {
+      this.activeRowIndex = index;
+      this.emit({ type: "activate", row });
+    }
+  }
+
+  /**
+   * Unhide all rows
+   */
+  showAll(): void {
+    for (const row of this.rows) {
+      if (row.isHidden) {
+        row.isHidden = false;
+        this.emit({ type: "update", row });
+      }
+    }
+    this.emit({ type: "showall" });
+  }
+
+  /**
    * Clear all rows
    */
   clear(): void {
@@ -187,6 +220,13 @@ export function buildViewMenu(): HTMLElement[] {
     .append("li")
     .text("view")
     .on("click", () => changeMode(Mode.DIFF));
+
+  // The show-all button
+  right
+    .append("li")
+    .append("button")
+    .text("Show all")
+    .on("click", () => viewState.showAll());
 
   // The clear-all button
   right

@@ -123,9 +123,40 @@ function createDiffMetadataHTML(d: DiffEntry): string {
   return displayLines.join("<br>");
 }
 
+/**
+ * Compute a bounding box for any GeoJSON object, tolerating invalid/degenerate
+ * geometry. Uses turf.coordEach for traversal; skips non-finite coordinate values.
+ * Returns null if no valid coordinates were found.
+ */
+function forgivingBbox(
+  geojson: GeoJSON,
+): [number, number, number, number] | null {
+  const acc: [number, number, number, number] = [
+    Infinity,
+    Infinity,
+    -Infinity,
+    -Infinity,
+  ];
+  try {
+    turf.coordEach(geojson as any, (coord) => {
+      const [lng, lat] = coord;
+      if (!Number.isFinite(lng) || !Number.isFinite(lat)) return;
+      if (lat < -90 || lat > 90) return;
+      if (lng < acc[0]) acc[0] = lng;
+      if (lat < acc[1]) acc[1] = lat;
+      if (lng > acc[2]) acc[2] = lng;
+      if (lat > acc[3]) acc[3] = lat;
+    });
+  } catch {
+    // coordEach can throw on structurally broken GeoJSON; return whatever we have
+  }
+  return Number.isFinite(acc[0]) ? acc : null;
+}
+
 export {
   getFeatureColor,
   getSemanticColor,
   createMetadataHTML,
   createDiffMetadataHTML,
+  forgivingBbox,
 };

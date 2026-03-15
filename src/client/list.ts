@@ -83,6 +83,9 @@ function renderViewList(
           const r = viewState.getRow(d.index);
           if (r) viewState.setHidden(d.index, !r.isHidden);
         })
+        .call(addButton, "solo-btn", "◎", (d: ViewRow) => {
+          viewState.soloRow(d.index);
+        })
         .call(addButton, "zoom-btn", "\u{1F50D}", (d: ViewRow) => {
           window.map?.scheduleFit([d.index]);
         })
@@ -105,10 +108,7 @@ function renderViewList(
       "selected-to",
       (d) => selecting && diffState.selectionTo() === d.index,
     )
-    .style("--swatch", (d) => {
-      const color = getFeatureColor(d.index);
-      return d.isHidden ? color + "40" : color;
-    })
+    .style("--row-color", (d) => getFeatureColor(d.index))
     .order();
 }
 

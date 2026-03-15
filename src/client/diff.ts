@@ -218,10 +218,10 @@ export const diffState = new DiffState();
 // Diff Menu UI
 // ========================================
 
-const STORAGE_KEY_SHOW_DIFF_OVERLAY = "showDiffOverlay";
+let showDiffOverlay = true;
 
-function getShowDiffOverlay(): boolean {
-  return localStorage.getItem(STORAGE_KEY_SHOW_DIFF_OVERLAY) !== "false";
+export function getShowDiffOverlay(): boolean {
+  return showDiffOverlay;
 }
 
 export function buildDiffMenu(): HTMLElement[] {
@@ -275,8 +275,11 @@ export function buildDiffMenu(): HTMLElement[] {
     .property("checked", getShowDiffOverlay())
     .on("change", function () {
       const checked = (this as HTMLInputElement).checked;
-      localStorage.setItem(STORAGE_KEY_SHOW_DIFF_OVERLAY, checked.toString());
+      showDiffOverlay = checked;
       window.map?.setDiffOverlayVisible(checked);
+      window.dispatchEvent(
+        new CustomEvent("diffoverlaychange", { detail: checked }),
+      );
     });
   showOverlayLabel.node()?.append("Show diff overlay");
 

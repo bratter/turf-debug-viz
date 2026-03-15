@@ -171,6 +171,7 @@ nav#mode-menu[data-mode="diff"] > ul:first-child > li:first-child::after {
 }
 
 .row {
+  --swatch: var(--row-color);
   position: relative;
   margin-bottom: 0;
   border-bottom: var(--border-width) solid var(--primary-border);
@@ -199,7 +200,17 @@ nav#mode-menu[data-mode="diff"] > ul:first-child > li:first-child::after {
 }
 
 .row.hidden {
+  --swatch: color-mix(in srgb, var(--row-color) 25%, transparent);
   text-decoration: line-through;
+}
+
+.row.hidden .visibility-btn {
+  opacity: 0.4;
+}
+
+#log.selecting .row {
+  --swatch: var(--row-color);
+  text-decoration: none;
 }
 
 .row.active,
@@ -235,6 +246,8 @@ nav#mode-menu[data-mode="diff"] > ul:first-child > li:first-child::after {
 
 .row-buttons button {
   padding: var(--nav-link-spacing-vertical) var(--nav-link-spacing-horizontal);
+  min-width: 2em;
+  text-align: center;
 }
 
 /* ========================================

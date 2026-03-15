@@ -25,6 +25,7 @@ declare global {
 
   interface WindowEventMap {
     modechange: CustomEvent<Mode>;
+    diffoverlaychange: CustomEvent<boolean>;
   }
 }
 
@@ -45,21 +46,16 @@ setTheme(getTheme());
 
 type PanelState = "both" | "map" | "json";
 
-const STORAGE_KEY_SIDEBAR = "turf-debug-sidebar";
-const STORAGE_KEY_PANEL_MODE = "turf-debug-panel-mode";
-
 const mapView = document.getElementById("map-view") as HTMLElement;
 const geojsonView = document.getElementById("geojson-view") as HTMLElement;
 const sidebar = document.getElementById("sidebar") as HTMLDivElement;
 
-let panelState =
-  (localStorage.getItem(STORAGE_KEY_PANEL_MODE) as PanelState | null) || "both";
-let sidebarState = localStorage.getItem(STORAGE_KEY_SIDEBAR) !== "false";
+let panelState: PanelState = "both";
+let sidebarState = true;
 
 function cyclePanels() {
   panelState =
     panelState === "both" ? "map" : panelState === "map" ? "json" : "both";
-  localStorage.setItem(STORAGE_KEY_PANEL_MODE, panelState);
 
   mapView.classList.toggle("collapsed", panelState === "json");
   geojsonView.classList.toggle("collapsed", panelState === "map");
@@ -68,7 +64,6 @@ function cyclePanels() {
 
 function toggleSidebar() {
   sidebarState = !sidebarState;
-  localStorage.setItem(STORAGE_KEY_SIDEBAR, sidebarState.toString());
 
   sidebar.classList.toggle("collapsed", !sidebarState);
   window.map?.resize();

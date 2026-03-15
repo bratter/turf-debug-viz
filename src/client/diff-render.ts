@@ -253,13 +253,23 @@ function renderCoordLeafPair(
 ): void {
   // Always render positions inline regardless of depth tracking
   if (leaf.status === "removed" && isPositionArray(leaf.from)) {
-    appendPositionLine(fromParent, leaf.from as unknown[], keyLabel, "gjv-diff-removed");
+    appendPositionLine(
+      fromParent,
+      leaf.from as unknown[],
+      keyLabel,
+      "gjv-diff-removed",
+    );
     appendSpacer(toParent);
     return;
   }
   if (leaf.status === "added" && isPositionArray(leaf.to)) {
     appendSpacer(fromParent);
-    appendPositionLine(toParent, leaf.to as unknown[], keyLabel, "gjv-diff-added");
+    appendPositionLine(
+      toParent,
+      leaf.to as unknown[],
+      keyLabel,
+      "gjv-diff-added",
+    );
     return;
   }
 
@@ -318,7 +328,9 @@ function renderCoordLeafPair(
 function extractPositionCoords(node: DiffNode, side: "from" | "to"): unknown[] {
   if (node.kind === "leaf") {
     const val = side === "from" ? node.from : node.to;
-    return Array.isArray(val) ? (val as unknown[]).filter((v) => typeof v === "number") : [];
+    return Array.isArray(val)
+      ? (val as unknown[]).filter((v) => typeof v === "number")
+      : [];
   }
   const coords: unknown[] = [];
   for (const child of node.children) {
@@ -700,8 +712,7 @@ const ARRAY_KEYS = new Set(["features", "geometries", "coordinates"]);
 
 function isGroupArray(group: DiffGroup): boolean {
   if (group.children.length > 0) {
-    const firstKey =
-      group.children[0].path[group.children[0].path.length - 1];
+    const firstKey = group.children[0].path[group.children[0].path.length - 1];
     return typeof firstKey === "number";
   }
   const lastKey = group.path[group.path.length - 1];
@@ -775,7 +786,8 @@ function isComplexValue(value: unknown): boolean {
   if (value === null || typeof value !== "object") return false;
   if (isPositionArray(value)) return false;
   if (Array.isArray(value) && value.length === 0) return false;
-  if (!Array.isArray(value) && Object.keys(value as object).length === 0) return false;
+  if (!Array.isArray(value) && Object.keys(value as object).length === 0)
+    return false;
   return true;
 }
 
@@ -791,8 +803,7 @@ function getGeometryDepths(
   group: DiffGroup,
 ): { fromDepth: number; toDepth: number } | null {
   const typeChild = group.children.find(
-    (c) =>
-      c.kind === "leaf" && c.path[c.path.length - 1] === "type",
+    (c) => c.kind === "leaf" && c.path[c.path.length - 1] === "type",
   ) as DiffLeaf | undefined;
 
   if (!typeChild) return null;

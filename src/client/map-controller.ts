@@ -9,7 +9,7 @@
 import type { ViewRow, DiffEntry } from "../../types.js";
 import { MapView } from "./map.ts";
 import { viewState } from "./view.ts";
-import { diffState } from "./diff.ts";
+import { diffState, getShowDiffOverlay } from "./diff.ts";
 import { Mode, getCurrentMode, getAutoFit } from "./mode-menu.ts";
 import { computeDiffOverlay } from "../diff/overlay.ts";
 
@@ -41,6 +41,9 @@ class MapController {
             this.map.scheduleFit([detail.row.index]);
           }
           break;
+        case "showall":
+          if (getCurrentMode() === Mode.VIEW) this.scheduleAutofit();
+          break;
         case "clear":
           this.map.clearMap(detail.rows);
           break;
@@ -67,6 +70,18 @@ class MapController {
     // Listen to mode changes
     window.addEventListener("modechange", (e) => {
       this.handleModeChange(e.detail);
+    });
+
+    // Mute/unmute base layers when diff overlay is toggled
+    window.addEventListener("diffoverlaychange", (e) => {
+      if (getCurrentMode() !== Mode.DIFF) return;
+      const diff = diffState.getActiveDiff();
+      if (diff) {
+        this.map.setDiffBaseLayersMuted(
+          [diff.from.index, diff.to.index],
+          e.detail,
+        );
+      }
     });
   }
 
@@ -124,6 +139,10 @@ class MapController {
       diff.to.geojson,
     );
     this.map.setDiffOverlay(overlay ?? null);
+    this.map.setDiffBaseLayersMuted(
+      [diff.from.index, diff.to.index],
+      getShowDiffOverlay(),
+    );
     if (error) {
       const p = document.createElement("p");
       p.className = "overlay-error";
@@ -137,9 +156,15 @@ class MapController {
   // ========================================
 
   private applyViewModeVisibility(): void {
-    for (const row of viewState.getRows()) {
+    const rows = viewState.getRows();
+    for (const row of rows) {
       this.map.setLayerVisibility(row.index, !row.isHidden);
     }
+    // Restore opacity for all rows in case any were muted in diff mode
+    this.map.setDiffBaseLayersMuted(
+      rows.map((r) => r.index),
+      false,
+    );
   }
 
   private applyDiffModeVisibility(diff: DiffEntry | null): void {
