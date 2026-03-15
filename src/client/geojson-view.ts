@@ -24,7 +24,13 @@ export function initGeoJsonView(): void {
 
   function renderRow(row: ViewRow | null): void {
     container.innerHTML = "";
-    if (row === null) return;
+    if (row === null) {
+      const p = document.createElement("p");
+      p.className = "empty-placeholder";
+      p.textContent = "Select an item to inspect";
+      container.appendChild(p);
+      return;
+    }
     const geojson = row.geojson;
     const lintGroup = lintFlat(geojson);
     const lints = buildLintMap(lintGroup.results as LintResult[]);
@@ -36,6 +42,9 @@ export function initGeoJsonView(): void {
     // Root-level object has no enclosing collection — remove its closing comma.
     removeLastComma(root);
   }
+
+  // Initial render
+  renderRow(viewState.getActiveRow());
 
   viewState.addEventListener("change", (e) => {
     if (e.detail.type === "activate") renderRow(e.detail.row);

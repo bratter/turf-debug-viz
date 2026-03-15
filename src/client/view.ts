@@ -218,6 +218,7 @@ export function buildViewMenu(): HTMLElement[] {
   // The mode indicator (click to switch)
   left
     .append("li")
+    .attr("title", "Switch to diff mode (d)")
     .text("view")
     .on("click", () => changeMode(Mode.DIFF));
 
@@ -225,6 +226,7 @@ export function buildViewMenu(): HTMLElement[] {
   right
     .append("li")
     .append("button")
+    .attr("title", "Show all hidden items")
     .text("Show all")
     .on("click", () => viewState.showAll());
 
@@ -232,8 +234,9 @@ export function buildViewMenu(): HTMLElement[] {
   right
     .append("li")
     .append("button")
+    .attr("title", "Clear all items")
     .text("Clear all")
-    .on("click", () => viewState.clear());
+    .on("click", () => window.dispatchEvent(new Event("clearrequest")));
 
   return [left.node()!, right.node()!];
 }

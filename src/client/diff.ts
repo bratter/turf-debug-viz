@@ -218,6 +218,13 @@ export const diffState = new DiffState();
 // Diff Menu UI
 // ========================================
 
+let labelInputNode: HTMLInputElement | null = null;
+
+export function focusDiffLabel() {
+  labelInputNode?.focus();
+  labelInputNode?.select();
+}
+
 let showDiffOverlay = true;
 
 export function getShowDiffOverlay(): boolean {
@@ -231,6 +238,7 @@ export function buildDiffMenu(): HTMLElement[] {
   // The mode indicator (click to switch)
   left
     .append("li")
+    .attr("title", "Switch to view mode (v)")
     .text("diff")
     .on("click", () => changeMode(Mode.VIEW));
   const statusLi = left.append("li");
@@ -239,6 +247,7 @@ export function buildDiffMenu(): HTMLElement[] {
   const newDiffLi = right.append("li");
   newDiffLi
     .append("button")
+    .attr("title", "Start new diff from two selected items")
     .text("New diff")
     .on("click", () => diffState.startSelection());
 
@@ -248,17 +257,26 @@ export function buildDiffMenu(): HTMLElement[] {
     .append("input")
     .attr("type", "text")
     .attr("placeholder", "Label (optional)")
-    .on("keyup", (e: KeyboardEvent) => e.stopPropagation());
+    .on("keydown", (e: KeyboardEvent) => {
+      e.stopPropagation();
+      if (e.key === "Enter") {
+        const label = (e.target as HTMLInputElement).value.trim() || undefined;
+        diffState.confirmSelection(label);
+      }
+    });
+  labelInputNode = labelInput.node() as HTMLInputElement;
 
   const cancelLi = right.append("li");
   cancelLi
     .append("button")
+    .attr("title", "Cancel selection (Esc)")
     .text("Cancel")
     .on("click", () => diffState.cancelSelection());
 
   const createLi = right.append("li");
   const createBtn = createLi
     .append("button")
+    .attr("title", "Create diff (Enter in label field)")
     .text("Create")
     .on("click", () => {
       const label =
@@ -269,6 +287,7 @@ export function buildDiffMenu(): HTMLElement[] {
   // Show diff overlay toggle (always visible, persisted to localStorage)
   const showOverlayLi = right.append("li");
   const showOverlayLabel = showOverlayLi.append("label");
+  showOverlayLabel.attr("title", "Overlay added/removed areas on the map");
   showOverlayLabel
     .append("input")
     .attr("type", "checkbox")

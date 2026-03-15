@@ -21,7 +21,13 @@ export function initDiffView(): void {
   function renderDiff(diff: DiffEntry | null): void {
     container.innerHTML = "";
     container.classList.remove("gjv-diff-layout");
-    if (!diff) return;
+    if (!diff) {
+      const p = document.createElement("p");
+      p.className = "empty-placeholder";
+      p.textContent = "Select a diff to compare";
+      container.appendChild(p);
+      return;
+    }
 
     const result = diffGeoJSON(diff.from.geojson, diff.to.geojson, {
       normalize: true,

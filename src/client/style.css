@@ -82,6 +82,18 @@ section#geojson-view.collapsed {
 }
 
 /* ========================================
+   Empty State Placeholders
+   ======================================== */
+
+.empty-placeholder {
+  color: var(--muted-color);
+  font-style: italic;
+  padding: var(--space-md);
+  list-style: none;
+  text-align: center;
+}
+
+/* ========================================
    Mode menu
    ======================================== */
 

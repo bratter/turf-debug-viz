@@ -25,7 +25,8 @@
       <ul>
         <li><span id="status">disconnected</span></li>
         <li id="theme-switcher"></li>
-        <li><button id="sidebar-toggle" aria-label="Toggle sidebar">☰</button></li>
+        <li><button id="help-open" aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)">?</button></li>
+        <li><button id="sidebar-toggle" aria-label="Toggle sidebar" title="Toggle sidebar (s)">☰</button></li>
       </ul>
     </nav>
   </header>
@@ -38,6 +39,44 @@
       <ul id="log"></ul>
     </div>
   </main>
+  <dialog id="help-modal">
+    <article>
+      <header>
+        <button aria-label="Close" rel="prev" id="help-close"></button>
+        <h3>Keyboard Shortcuts</h3>
+      </header>
+      <table>
+        <thead><tr><th>Key</th><th>Action</th></tr></thead>
+        <tbody>
+          <tr><td><kbd>j</kbd> / <kbd>↓</kbd></td><td>Next item</td></tr>
+          <tr><td><kbd>k</kbd> / <kbd>↑</kbd></td><td>Previous item</td></tr>
+          <tr><td><kbd>Space</kbd></td><td>Toggle hide (view) / select from·to (diff)</td></tr>
+          <tr><td><kbd>Enter</kbd></td><td>Solo active (view) / go to label when both selected (diff)</td></tr>
+          <tr><td><kbd>z</kbd></td><td>Zoom map to fit active item</td></tr>
+          <tr><td><kbd>x</kbd></td><td>Delete active item</td></tr>
+          <tr><td><kbd>a</kbd></td><td>Show all hidden items</td></tr>
+          <tr><td><kbd>c</kbd></td><td>Clear all items</td></tr>
+          <tr><td><kbd>v</kbd></td><td>View mode</td></tr>
+          <tr><td><kbd>d</kbd></td><td>Diff mode</td></tr>
+          <tr><td><kbd>n</kbd></td><td>New diff (diff mode)</td></tr>
+          <tr><td><kbd>p</kbd></td><td>Cycle panels</td></tr>
+          <tr><td><kbd>s</kbd></td><td>Toggle sidebar</td></tr>
+          <tr><td><kbd>Esc</kbd></td><td>Cancel / close</td></tr>
+          <tr><td><kbd>?</kbd></td><td>This help</td></tr>
+        </tbody>
+      </table>
+    </article>
+  </dialog>
+  <dialog id="confirm-modal">
+    <article>
+      <h3>Are you sure?</h3>
+      <p id="confirm-message"></p>
+      <footer>
+        <button id="confirm-cancel" class="secondary">Cancel</button>
+        <button id="confirm-ok">Confirm</button>
+      </footer>
+    </article>
+  </dialog>
   <script type="module" src="/assets/client.js"></script>
 
 </body>

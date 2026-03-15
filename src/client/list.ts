@@ -26,11 +26,28 @@ export function initList() {
   const log = select<HTMLUListElement, unknown>("#log");
 
   function render() {
+    let isEmpty: boolean;
+    let placeholderText: string;
+
     if (getCurrentMode() === Mode.DIFF && !diffState.isSelecting()) {
       renderDiffList(log);
+      isEmpty = diffState.getDiffs().length === 0;
+      placeholderText = "No diffs yet";
     } else {
       renderViewList(log);
+      isEmpty = viewState.getRows().length === 0;
+      placeholderText = "No items yet";
     }
+
+    log
+      .selectAll<HTMLLIElement, number>(".empty-placeholder")
+      .data(isEmpty ? [1] : [])
+      .join(
+        (enter) =>
+          enter.append("li").attr("class", "empty-placeholder").text(placeholderText),
+        (update) => update.text(placeholderText),
+        (exit) => exit.remove(),
+      );
   }
 
   // Initial render
@@ -82,23 +99,23 @@ function renderViewList(
         .call(addButton, "visibility-btn", "\u{1F441}\uFE0F", (d: ViewRow) => {
           const r = viewState.getRow(d.index);
           if (r) viewState.setHidden(d.index, !r.isHidden);
-        })
+        }, "Toggle visibility")
         .call(addButton, "solo-btn", "◎", (d: ViewRow) => {
           viewState.soloRow(d.index);
-        })
+        }, "Solo — hide all others (Shift+Enter)")
         .call(addButton, "zoom-btn", "\u{1F50D}", (d: ViewRow) => {
           window.map?.scheduleFit([d.index]);
-        })
+        }, "Zoom to fit")
         .call(addButton, "delete-btn", "\u{1F5D1}\uFE0F", (d: ViewRow) => {
           viewState.deleteRow(d.index);
-        });
+        }, "Delete");
 
       return row;
     })
     .classed("hidden", (d) => d.isHidden)
     .classed(
       "active",
-      (d) => !selecting && viewState.getActiveRow()?.index === d.index,
+      (d) => viewState.getActiveRow()?.index === d.index,
     )
     .classed(
       "selected-from",
@@ -141,10 +158,10 @@ function renderDiffList(
         .attr("class", "row-buttons")
         .call(addButton, "zoom-btn", "\u{1F50D}", (d: DiffEntry) => {
           window.map?.scheduleFit([d.from.index, d.to.index], true);
-        })
+        }, "Zoom to fit")
         .call(addButton, "delete-btn", "\u{1F5D1}\uFE0F", (d: DiffEntry) => {
           diffState.deleteDiff(d.id);
-        });
+        }, "Delete");
 
       return row;
     })
@@ -159,10 +176,12 @@ function addButton<D>(
   cls: string,
   icon: string,
   action: (d: D) => void,
+  title?: string,
 ) {
   container
     .append("button")
     .attr("class", cls)
+    .attr("title", title ?? null)
     .text(icon)
     .on("click", (e: MouseEvent, d: D) => {
       e.stopPropagation();

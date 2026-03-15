@@ -95,6 +95,7 @@ function makeMapControls(): HTMLElement {
 
   const showVertices = controls.append("li");
   const showVerticesLabel = showVertices.append("label");
+  showVerticesLabel.attr("title", "Show all geometry vertices on map");
   showVerticesLabel
     .append("input")
     .attr("type", "checkbox")
@@ -107,6 +108,7 @@ function makeMapControls(): HTMLElement {
 
   const autofit = controls.append("li");
   const autofitLabel = autofit.append("label");
+  autofitLabel.attr("title", "Auto-zoom map when active item changes");
   autofitLabel
     .append("input")
     .attr("type", "checkbox")
@@ -130,6 +132,7 @@ function makeMapControls(): HTMLElement {
   controls
     .append("li")
     .append("button")
+    .attr("title", "Zoom to fit")
     .text("Zoom to fit")
     .on("click", () => {
       if (currentMode === Mode.DIFF) {
