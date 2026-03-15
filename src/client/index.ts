@@ -105,7 +105,6 @@ viewState.addEventListener("change", (e) => {
 
 // Initialize map with accessor function for render data
 // and set up MapController to handle state-to-map coordination
-// FIX: Reactivate when ready
 window.map = new MapView("map-view", () => viewState.getRows());
 new MapController(window.map);
 

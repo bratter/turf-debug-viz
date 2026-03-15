@@ -37,7 +37,7 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
-    "@turf/turf": "^7.3.2",
+    "@turf/turf": "^7.3.4",
     "d3-selection": "^3.0.0",
     "deasync": "^0.1.31",
     "ws": "^8.19.0"
